@@ -21,6 +21,7 @@ const nextConfig: NextConfig = {
   // Mark them server-external so Next loads them natively and the dynamic
   // import resolves as a real Node call.
   serverExternalPackages: [
+    'sharp',
     '@earendil-works/pi-ai',
     '@earendil-works/pi-agent-core',
     '@openmaic/generation',
