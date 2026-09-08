@@ -7,6 +7,13 @@ const nextConfig: NextConfig = {
       'lib/server/agent-runtime/import-pptx-worker.mjs',
       'skills/openmaic/**',
       'skills/agent-runtime/**',
+      // sharp's native linux-x64 binaries live inside pnpm's symlinked
+      // .pnpm store; Vercel's build-time file tracer does not reliably
+      // follow that symlink chain for native addons, so ERR_DLOPEN_FAILED
+      // happens at runtime even though the packages are correctly
+      // resolved in pnpm-lock.yaml. Force-include them explicitly.
+      'node_modules/.pnpm/@img+sharp-linux-x64@*/node_modules/@img/sharp-linux-x64/**',
+      'node_modules/.pnpm/@img+sharp-libvips-linux-x64@*/node_modules/@img/sharp-libvips-linux-x64/**',
     ],
   },
   typescript: {
