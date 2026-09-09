@@ -275,7 +275,7 @@ function HomePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [themeOpen]);
 
-  const loadClassrooms = async () => {
+  const loadClassrooms = async (isRetry = false) => {
     try {
       const list = await listStages();
       setClassrooms(list);
@@ -287,15 +287,30 @@ function HomePage() {
         replaceThumbnails({});
       }
     } catch (err) {
+      // Server-backed persistence resolves an async learner key and rides on
+      // the access-code cookie; right after login (or on a slow first paint)
+      // that plumbing can lose a single race against this mount-time fetch,
+      // which otherwise looks identical to a real outage until the visitor
+      // manually refreshes. One short, silent retry absorbs that transient
+      // case without bothering the user; a second failure is a real error.
+      if (!isRetry) {
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        return loadClassrooms(true);
+      }
       log.error('Failed to load classrooms:', err);
       toast.error('Persistence is unavailable. Saved classrooms could not be loaded.');
     }
   };
 
-  const loadFolders = async () => {
+  const loadFolders = async (isRetry = false) => {
     try {
       setFolders(await listFolders());
     } catch (err) {
+      // See loadClassrooms: same transient-race rationale for one retry.
+      if (!isRetry) {
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        return loadFolders(true);
+      }
       log.error('Failed to load folders:', err);
     }
   };
