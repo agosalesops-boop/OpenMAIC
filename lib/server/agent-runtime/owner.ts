@@ -56,6 +56,20 @@ export function resolveRequestOwnerId(
 ): string {
   if (authenticatedOwnerId) return authenticatedOwnerId;
 
+  // SHARED_TEAM_OWNER_ID: this deployment has no real accounts, so the
+  // per-browser anonymous cookie below normally partitions every visitor
+  // into their own private, invisible-to-everyone-else course library --
+  // exactly the "my team can't see my course" symptom this override fixes.
+  // Setting this env var makes every visitor resolve to the SAME owner
+  // identity instead, so all courses/folders are visible to the whole team.
+  // This trades away per-person isolation entirely (same category of
+  // trade-off already accepted by PERSISTENCE_DEV_TOKEN's "no user
+  // isolation whatsoever" -- fine for a trusted, ACCESS_CODE-gated pilot,
+  // not for a deployment with real distinct users). Unset it to restore the
+  // original one-browser-per-owner behavior.
+  const sharedOwnerId = process.env.SHARED_TEAM_OWNER_ID?.trim();
+  if (sharedOwnerId) return `anon:${sharedOwnerId}`;
+
   const existingId = readCookie(req.headers, ANONYMOUS_COOKIE);
   if (existingId && UUID_V4.test(existingId)) return `anon:${existingId}`;
 
