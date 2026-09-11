@@ -6,6 +6,7 @@ import { isSceneEditLocked } from '@/lib/edit/regen-lock';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { useSettingsStore } from '@/lib/store/settings';
 import { db } from '@/lib/utils/database';
+import { getAssetPool } from '@/lib/media/asset-pool';
 import type {
   SceneOutline,
   PdfImage,
@@ -470,7 +471,17 @@ export async function generateAndStoreTTS(
   // clip onto a timeline without re-decoding. null → leave undefined; the audio
   // still persists and plays.
   const duration = measureAudioDuration(bytes, data.format) ?? undefined;
-  const audioId = existingAudioId ?? requestId;
+  // Allocate through the shared asset pool (server-backed when persistence is
+  // enabled) so this clip is fetchable from any browser/device, not just the
+  // one that generated it -- otherwise a learner opening the course on a
+  // different device gets silent narration. `put` always mints a fresh ref
+  // per the StorageProvider contract, so a regeneration (existingAudioId set)
+  // simply gets a new id; the caller writes it back onto `action.audioId`,
+  // which is the only place that needs to track it.
+  const audioId = await getAssetPool().put(blob, { contentType: `audio/${data.format}` });
+  // Dexie stays a same-browser fast-path cache under the pool-allocated id;
+  // resolveAudioBlob tries the pool first and only reads this row when the
+  // pool has nothing (e.g. persistence disabled).
   await db.audioFiles.put({
     id: audioId,
     stageId,

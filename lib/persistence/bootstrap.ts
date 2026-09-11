@@ -1,5 +1,6 @@
 import { BrowserKVStore, HttpDocumentStore, type HttpDocumentHeadersHook } from '@openmaic/storage';
 import { HttpRuntimeStore, type HttpRuntimeHeadersHook } from '@openmaic/storage/runtime/http';
+import { HttpAssetStore, type HttpAssetHeadersHook } from '@openmaic/storage/asset/http';
 
 import {
   assertDocumentStorageConfigurable,
@@ -8,6 +9,10 @@ import {
 } from '@/lib/document-store/config';
 import { assertRuntimeStorageConfigurable, configureRuntimeStorage } from '@/lib/runtime/config';
 import { getLearnerKey } from '@/lib/runtime/learner-key';
+import {
+  assertAssetPoolStorageConfigurable,
+  configureAssetPoolStorage,
+} from '@/lib/media/asset-pool-config';
 
 let deviceKv: BrowserKVStore | undefined;
 let learnerKeyPromise: Promise<string> | undefined;
@@ -59,13 +64,27 @@ if (isBrowserPersistenceEnabled()) {
         validateStage,
       }),
   };
+  // Server-backed so generated media (narration audio today; images/video if
+  // added later) is fetchable from any browser or device, not just the one
+  // that generated it -- without this, a learner opening a course on a
+  // different device than the one it was built on gets silent narration.
+  const assetOptions = {
+    store: () =>
+      new HttpAssetStore({
+        baseUrl: '/api/persistence',
+        headers: headers satisfies HttpAssetHeadersHook,
+      }),
+    serverBacked: true,
+  };
   try {
     // All checks are mutation-free. Once they pass, the synchronous configure
     // calls cannot leave only a subset of the persistence seams configured.
     assertRuntimeStorageConfigurable();
     assertDocumentStorageConfigurable();
+    assertAssetPoolStorageConfigurable();
     configureRuntimeStorage(runtimeOptions);
     configureDocumentStorage(documentOptions);
+    configureAssetPoolStorage(assetOptions);
   } catch (error) {
     console.error(
       'FATAL: server-backed persistence bootstrap failed; no storage seam changes were applied',
