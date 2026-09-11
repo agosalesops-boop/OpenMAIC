@@ -14,13 +14,19 @@ function bufToHex(buf: ArrayBuffer): string {
     .join('');
 }
 
-/** Verify an HMAC-signed token using Web Crypto API (Edge-compatible) */
-async function verifyToken(token: string, accessCode: string): Promise<boolean> {
-  const dotIndex = token.indexOf('.');
-  if (dotIndex === -1) return false;
+/** Verify an HMAC-signed `role.timestamp.signature` token using Web Crypto API
+ * (Edge-compatible). Returns the verified role, or null. */
+async function verifyToken(
+  token: string,
+  codesByRole: { admin: string; learner?: string },
+): Promise<'admin' | 'learner' | null> {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [role, timestamp, signature] = parts;
+  if (role !== 'admin' && role !== 'learner') return null;
 
-  const timestamp = token.substring(0, dotIndex);
-  const signature = token.substring(dotIndex + 1);
+  const accessCode = role === 'admin' ? codesByRole.admin : codesByRole.learner;
+  if (!accessCode) return null;
 
   const keyData = encode(accessCode);
   const key = await crypto.subtle.importKey(
@@ -31,16 +37,16 @@ async function verifyToken(token: string, accessCode: string): Promise<boolean> 
     ['sign'],
   );
 
-  const data = encode(timestamp);
+  const data = encode(`${role}.${timestamp}`);
   const expected = bufToHex(await crypto.subtle.sign('HMAC', key, data.buffer as ArrayBuffer));
 
   // Constant-length comparison (not truly constant-time in JS, but sufficient here)
-  if (signature.length !== expected.length) return false;
+  if (signature.length !== expected.length) return null;
   let mismatch = 0;
   for (let i = 0; i < signature.length; i++) {
     mismatch |= signature.charCodeAt(i) ^ expected.charCodeAt(i);
   }
-  return mismatch === 0;
+  return mismatch === 0 ? role : null;
 }
 
 export async function middleware(request: NextRequest) {
@@ -61,6 +67,7 @@ export async function middleware(request: NextRequest) {
   if (!accessCode) {
     return NextResponse.next();
   }
+  const learnerAccessCode = process.env.LEARNER_ACCESS_CODE;
 
   // Whitelist: access-code endpoints, health check
   if (pathname.startsWith('/api/access-code/') || pathname === '/api/health') {
@@ -69,8 +76,18 @@ export async function middleware(request: NextRequest) {
 
   // Check cookie — validate HMAC signature, not just existence
   const cookie = request.cookies.get('openmaic_access');
-  if (cookie?.value && (await verifyToken(cookie.value, accessCode))) {
-    return NextResponse.next();
+  const role = cookie?.value
+    ? await verifyToken(cookie.value, { admin: accessCode, learner: learnerAccessCode })
+    : null;
+  if (role) {
+    // Forward the verified role downstream via a request header so server
+    // components / route handlers can read it without re-verifying the
+    // cookie themselves. Untrusted client input can never set this header
+    // directly — Next strips/overwrites request headers set here before
+    // the request reaches app code, and this is the only place that sets it.
+    const headers = new Headers(request.headers);
+    headers.set('x-access-role', role);
+    return NextResponse.next({ request: { headers } });
   }
 
   // API requests without valid cookie → 401

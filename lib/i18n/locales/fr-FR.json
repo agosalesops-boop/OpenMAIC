@@ -11,7 +11,8 @@
   },
   "home": {
     "slogan": "L’apprentissage génératif en classe interactive multi-agents",
-    "greetingWithName": "Bonjour, {{name}}"
+    "greetingWithName": "Bonjour, {{name}}",
+    "learnerCannotCreate": "La création de cours est réservée aux administrateurs de ce compte"
   },
   "toolbar": {
     "pdfParser": "Analyseur",

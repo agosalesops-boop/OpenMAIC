@@ -11,7 +11,8 @@
   },
   "home": {
     "slogan": "多智能體互動課室中的生成式學習",
-    "greetingWithName": "嗨，{{name}}"
+    "greetingWithName": "嗨，{{name}}",
+    "learnerCannotCreate": "課程建立僅限此帳戶的管理員"
   },
   "toolbar": {
     "pdfParser": "解析器",

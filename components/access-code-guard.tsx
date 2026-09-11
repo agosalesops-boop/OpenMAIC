@@ -3,6 +3,7 @@
 import { useEffect, useState, ReactNode } from 'react';
 import { AccessCodeModal } from '@/components/access-code-modal';
 import { useSettingsStore } from '@/lib/store/settings';
+import { useAccessRoleStore, type AccessRole } from '@/lib/store/access-role';
 
 export function AccessCodeGuard({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<{
@@ -10,18 +11,20 @@ export function AccessCodeGuard({ children }: { children: ReactNode }) {
     authenticated: boolean;
     loading: boolean;
   }>({ enabled: false, authenticated: false, loading: true });
+  const setRole = useAccessRoleStore((s) => s.setRole);
 
   useEffect(() => {
     let cancelled = false;
     fetch('/api/access-code/status')
       .then((res) => res.json())
-      .then((data) => {
+      .then((data: { enabled: boolean; authenticated: boolean; role?: AccessRole | null }) => {
         if (!cancelled) {
           setStatus({
             enabled: data.enabled,
             authenticated: data.authenticated,
             loading: false,
           });
+          setRole(data.role ?? null);
         }
       })
       .catch(() => {
@@ -33,7 +36,7 @@ export function AccessCodeGuard({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [setRole]);
 
   const needsAuth = !status.loading && status.enabled && !status.authenticated;
 
@@ -42,8 +45,9 @@ export function AccessCodeGuard({ children }: { children: ReactNode }) {
       {needsAuth && (
         <AccessCodeModal
           open={true}
-          onSuccess={() => {
+          onSuccess={(role) => {
             setStatus((s) => ({ ...s, authenticated: true }));
+            setRole(role);
             // ServerProvidersInit runs on mount, which on an ACCESS_CODE-gated
             // deployment is before any access cookie exists: the middleware
             // answers 401 and the store silently keeps its blank defaults.

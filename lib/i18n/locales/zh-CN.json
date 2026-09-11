@@ -11,7 +11,8 @@
   },
   "home": {
     "slogan": "Generative Learning in Multi-Agent Interactive Classroom",
-    "greetingWithName": "嗨，{{name}}"
+    "greetingWithName": "嗨，{{name}}",
+    "learnerCannotCreate": "课程创建仅限此账户的管理员"
   },
   "toolbar": {
     "pdfParser": "解析器",

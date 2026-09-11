@@ -4,10 +4,11 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { ArrowRight, ShieldCheck, LoaderCircle } from 'lucide-react';
+import type { AccessRole } from '@/lib/server/access-token';
 
 interface AccessCodeModalProps {
   open: boolean;
-  onSuccess: () => void;
+  onSuccess: (role: AccessRole) => void;
 }
 
 export function AccessCodeModal({ open, onSuccess }: AccessCodeModalProps) {
@@ -38,8 +39,10 @@ export function AccessCodeModal({ open, onSuccess }: AccessCodeModalProps) {
       });
 
       if (res.ok) {
+        const data: { role?: AccessRole } = await res.json().catch(() => ({}));
+        const role: AccessRole = data.role === 'learner' ? 'learner' : 'admin';
         setSuccess(true);
-        setTimeout(onSuccess, 600);
+        setTimeout(() => onSuccess(role), 600);
       } else {
         setError(t('accessCode.error'));
         setCode('');

@@ -18,6 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useTheme } from '@/lib/hooks/use-theme';
 import { useStageStore } from '@/lib/store';
+import { useIsLearner } from '@/lib/store/access-role';
 import { useMediaGenerationStore } from '@/lib/store/media-generation';
 import { useExportPPTX } from '@/lib/export/use-export-pptx';
 import { useExportClassroom } from '@/lib/export/use-export-classroom';
@@ -80,6 +81,7 @@ export function HeaderControls({
 }: HeaderControlsProps) {
   const { t } = useI18n();
   const { theme, setTheme } = useTheme();
+  const isLearner = useIsLearner();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [videoDialogOpen, setVideoDialogOpen] = useState(false);
 
@@ -200,14 +202,16 @@ export function HeaderControls({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Settings */}
-        <button
-          onClick={() => setSettingsOpen(true)}
-          className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all group"
-          aria-label={t('settings.title')}
-        >
-          <Settings className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
-        </button>
+        {/* Settings — admin only, same reasoning as the Home header's gear icon. */}
+        {!isLearner && (
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all group"
+            aria-label={t('settings.title')}
+          >
+            <Settings className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
+          </button>
+        )}
       </div>
 
       {/* Pro Switch — toggle property: on/off both clickable, not a

@@ -11,7 +11,8 @@
   },
   "home": {
     "slogan": "멀티 에이전트 인터랙티브 교실에서 펼치는 생성형 학습",
-    "greetingWithName": "안녕하세요, {{name}}!"
+    "greetingWithName": "안녕하세요, {{name}}!",
+    "learnerCannotCreate": "코스 생성은 이 계정의 관리자만 가능합니다"
   },
   "toolbar": {
     "pdfParser": "파서",

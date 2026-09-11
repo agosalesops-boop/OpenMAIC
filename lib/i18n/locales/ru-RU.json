@@ -11,7 +11,8 @@
   },
   "home": {
     "slogan": "Generative Learning in Multi-Agent Interactive Classroom",
-    "greetingWithName": "Привет, {{name}}"
+    "greetingWithName": "Привет, {{name}}",
+    "learnerCannotCreate": "Создание курсов доступно только администраторам этого аккаунта"
   },
   "toolbar": {
     "pdfParser": "Парсер",

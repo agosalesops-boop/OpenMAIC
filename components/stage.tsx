@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
 import { useStageStore } from '@/lib/store';
+import { useIsLearner } from '@/lib/store/access-role';
 import {
   isCurrentSceneEditable,
   isHostedSceneEditable,
@@ -93,7 +94,10 @@ export function Stage({
   // server-backed mode — their saves would not pass the owner check anyway.
   const isOwner = useStageStore((s) => s.isOwner);
   const readOnly = useStageStore((s) => s.readOnly);
-  const canEditOwnedStage = isOwner && !readOnly;
+  // Learner login: view + discuss only, never edit — regardless of isOwner
+  // (which is universally true across a shared-team-owner deployment).
+  const isLearner = useIsLearner();
+  const canEditOwnedStage = isOwner && !readOnly && !isLearner;
 
   // Hosted by the Pro workspace's classroom pane. Ambient rather than a prop
   // because `Stage` is built by `ClassroomSurface`, which is mounted by both
@@ -282,15 +286,17 @@ export function Stage({
   // The embedded pane is already Pro-locked, so it has no switch. Full-screen
   // learning exposes an active switch whose off transition exits the workspace
   // and returns to the ordinary classroom route.
-  const chromeToggleHandler = hosted
-    ? workbenchPlayback
-      ? handleExitWorkbench
-      : undefined
-    : !isOwner || proRuntime === 'pending'
-      ? undefined
-      : proWorkbenchEntry
-        ? handleEnterWorkbench
-        : toggleHandler;
+  const chromeToggleHandler = isLearner
+    ? undefined
+    : hosted
+      ? workbenchPlayback
+        ? handleExitWorkbench
+        : undefined
+      : !isOwner || proRuntime === 'pending'
+        ? undefined
+        : proWorkbenchEntry
+          ? handleEnterWorkbench
+          : toggleHandler;
 
   // Mode swap choreography — a clean opacity cross-fade. Both roots layer
   // via `absolute inset-0` so they coexist for the ~280ms window without

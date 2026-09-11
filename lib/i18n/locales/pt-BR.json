@@ -11,7 +11,8 @@
   },
   "home": {
     "slogan": "Aprendizagem Generativa em Sala de Aula Interativa Multi-Agente",
-    "greetingWithName": "Olá, {{name}}"
+    "greetingWithName": "Olá, {{name}}",
+    "learnerCannotCreate": "A criação de cursos é limitada aos administradores desta conta"
   },
   "toolbar": {
     "pdfParser": "Analisador",

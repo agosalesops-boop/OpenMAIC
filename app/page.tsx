@@ -52,6 +52,7 @@ import type {
   UserRequirements,
 } from '@/lib/types/generation';
 import { useSettingsStore } from '@/lib/store/settings';
+import { useIsLearner } from '@/lib/store/access-role';
 import { hasUsableLLMProvider } from '@/lib/store/settings-validation';
 import { useUserProfileStore, AVATAR_OPTIONS } from '@/lib/store/user-profile';
 import {
@@ -155,7 +156,8 @@ function HomePage() {
       cancelled = true;
     };
   }, [workbenchBuildEnabled]);
-  const workbenchEntryEnabled = workbenchBuildEnabled && workbenchRuntimeEnabled;
+  const isLearner = useIsLearner();
+  const workbenchEntryEnabled = workbenchBuildEnabled && workbenchRuntimeEnabled && !isLearner;
   const enterWorkbench = () => {
     const href = workspaceResumeHref(readLastWorkspaceSessionId());
     startProSwap(href, (next) => router.push(next));
@@ -708,7 +710,7 @@ function HomePage() {
     return date.toLocaleDateString();
   };
 
-  const canGenerate = !!form.requirement.trim() && hasUsableProvider;
+  const canGenerate = !!form.requirement.trim() && hasUsableProvider && !isLearner;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -807,15 +809,18 @@ function HomePage() {
 
         <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700" />
 
-        {/* Settings Button */}
-        <div className="relative">
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all group"
-          >
-            <Settings className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
-          </button>
-        </div>
+        {/* Settings Button — admin only; learners have nothing here to configure
+            and provider API keys shouldn't be reachable from a learner login. */}
+        {!isLearner && (
+          <div className="relative">
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all group"
+            >
+              <Settings className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
+            </button>
+          </div>
+        )}
       </div>
       <SettingsDialog
         open={settingsOpen}
@@ -902,12 +907,13 @@ function HomePage() {
             {/* Textarea */}
             <textarea
               ref={textareaRef}
-              placeholder={t('upload.requirementPlaceholder')}
-              className="w-full resize-none border-0 bg-transparent px-4 pt-1 pb-2 text-[13px] leading-relaxed placeholder:text-muted-foreground/40 focus:outline-none min-h-[140px] max-h-[300px]"
+              placeholder={isLearner ? t('home.learnerCannotCreate') : t('upload.requirementPlaceholder')}
+              className="w-full resize-none border-0 bg-transparent px-4 pt-1 pb-2 text-[13px] leading-relaxed placeholder:text-muted-foreground/40 focus:outline-none min-h-[140px] max-h-[300px] disabled:cursor-not-allowed disabled:opacity-60"
               value={form.requirement}
               onChange={(e) => updateForm('requirement', e.target.value)}
               onKeyDown={handleKeyDown}
               rows={4}
+              disabled={isLearner}
             />
 
             {/* Toolbar row */}
@@ -1192,7 +1198,7 @@ function HomePage() {
                 </button>
               )}
               {/* New folder — round icon button, matches the import/upload affordances. */}
-              {!currentFolderId && !isSearching && (
+              {!currentFolderId && !isSearching && !isLearner && (
                 <button
                   type="button"
                   onClick={() => {

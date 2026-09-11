@@ -11,7 +11,8 @@
   },
   "home": {
     "slogan": "Học tập sinh tạo trong lớp học tương tác đa tác nhân",
-    "greetingWithName": "Chào {{name}}"
+    "greetingWithName": "Chào {{name}}",
+    "learnerCannotCreate": "Chỉ quản trị viên của tài khoản này mới có thể tạo khóa học"
   },
   "toolbar": {
     "pdfParser": "Bộ đọc PDF",
