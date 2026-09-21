@@ -5,13 +5,29 @@ import { verifyLoginCode } from '@/lib/persistence/accounts';
 import { getServerPersistenceProvider } from '@/lib/persistence/server-provider';
 
 export async function POST(request: Request) {
+  const accessCode = process.env.ACCESS_CODE;
   const tokenSecret = process.env.ACCOUNT_TOKEN_SECRET;
   const connectionString = process.env.DATABASE_URL;
+  // Mirrors middleware.ts's authEnabled: either var configured means auth is
+  // required, not just tokenSecret alone (see status/route.ts for the same fix).
+  const authConfigured = !!accessCode || !!tokenSecret;
+
+  if (!authConfigured) {
+    // Neither configured -- match middleware's wide-open dev mode.
+    return apiSuccess({ valid: true, role: 'admin' as AccessRole });
+  }
 
   if (!tokenSecret || !connectionString) {
-    // Auth isn't fully configured -- match middleware's wide-open dev mode
-    // instead of a login that can never succeed.
-    return apiSuccess({ valid: true, role: 'admin' as AccessRole });
+    // ACCESS_CODE is set but the new secret (or DATABASE_URL) isn't --
+    // middleware fails closed in this state, so a login here could never
+    // actually work (no way to sign a verifiable cookie). Fail clearly
+    // instead of pretending success with no cookie behind it.
+    return apiError(
+      'INTERNAL_ERROR',
+      503,
+      'Sign-in is not fully configured yet',
+      'ACCOUNT_TOKEN_SECRET (and DATABASE_URL) must be set alongside ACCESS_CODE',
+    );
   }
 
   let body: { code?: string };
