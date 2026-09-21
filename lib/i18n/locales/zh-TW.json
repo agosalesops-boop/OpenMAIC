@@ -1831,6 +1831,37 @@
       "capabilities": "套餐提供的能力",
       "offeredNote": "此方案提供的模型清單。請在生成介面選擇需要使用的模型——是否可用取決於你的方案檔位，不支援的模型會在生成時報錯。"
     },
+    "accounts": {
+      "nav": null,
+      "title": null,
+      "description": null,
+      "nameLabel": null,
+      "namePlaceholder": null,
+      "roleLabel": null,
+      "roleAdmin": null,
+      "roleLearner": null,
+      "createButton": null,
+      "nameRequired": null,
+      "createError": null,
+      "codeGeneratedTitle": null,
+      "codeGeneratedNotice": null,
+      "codeLabel": null,
+      "doneButton": null,
+      "tableName": null,
+      "tableRole": null,
+      "tableStatus": null,
+      "tableCreated": null,
+      "tableActions": null,
+      "statusActive": null,
+      "statusRevoked": null,
+      "revokeButton": null,
+      "revokeConfirmTitle": null,
+      "revokeConfirmDescription": null,
+      "cancelButton": null,
+      "revokeError": null,
+      "emptyState": null,
+      "loadError": null
+    },
     "skills": {
       "nav": "技能",
       "title": "Skill 設定",
@@ -1987,7 +2018,12 @@
   "accessCode": {
     "title": "請輸入課堂碼",
     "placeholder": "課堂碼",
-    "error": "課堂碼錯誤，請重試。"
+    "error": "課堂碼錯誤，請重試。",
+    "logout": null,
+    "bootstrapTitle": null,
+    "bootstrapNotice": null,
+    "bootstrapCodeLabel": null,
+    "continueButton": null
   },
   "classroomComplete": {
     "title": "課程完成",

@@ -11,22 +11,29 @@ export function AccessCodeGuard({ children }: { children: ReactNode }) {
     authenticated: boolean;
     loading: boolean;
   }>({ enabled: false, authenticated: false, loading: true });
-  const setRole = useAccessRoleStore((s) => s.setRole);
+  const setSession = useAccessRoleStore((s) => s.setSession);
 
   useEffect(() => {
     let cancelled = false;
     fetch('/api/access-code/status')
       .then((res) => res.json())
-      .then((data: { enabled: boolean; authenticated: boolean; role?: AccessRole | null }) => {
-        if (!cancelled) {
-          setStatus({
-            enabled: data.enabled,
-            authenticated: data.authenticated,
-            loading: false,
-          });
-          setRole(data.role ?? null);
-        }
-      })
+      .then(
+        (data: {
+          enabled: boolean;
+          authenticated: boolean;
+          role?: AccessRole | null;
+          name?: string | null;
+        }) => {
+          if (!cancelled) {
+            setStatus({
+              enabled: data.enabled,
+              authenticated: data.authenticated,
+              loading: false,
+            });
+            setSession({ role: data.role ?? null, name: data.name ?? null });
+          }
+        },
+      )
       .catch(() => {
         if (!cancelled) {
           // Default to requiring auth on error — safer than silently disabling
@@ -36,7 +43,7 @@ export function AccessCodeGuard({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [setRole]);
+  }, [setSession]);
 
   const needsAuth = !status.loading && status.enabled && !status.authenticated;
 
@@ -45,9 +52,9 @@ export function AccessCodeGuard({ children }: { children: ReactNode }) {
       {needsAuth && (
         <AccessCodeModal
           open={true}
-          onSuccess={(role) => {
+          onSuccess={(role, name) => {
             setStatus((s) => ({ ...s, authenticated: true }));
-            setRole(role);
+            setSession({ role, name: name ?? null });
             // ServerProvidersInit runs on mount, which on an ACCESS_CODE-gated
             // deployment is before any access cookie exists: the middleware
             // answers 401 and the store silently keeps its blank defaults.

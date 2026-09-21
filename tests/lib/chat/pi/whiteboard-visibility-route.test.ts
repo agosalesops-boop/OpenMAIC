@@ -1,12 +1,12 @@
 import type { NextRequest } from 'next/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { queryWhiteboardVisibility } from '@/lib/chat/pi/whiteboard-visibility';
 
 function request(
   body: unknown,
   headers: Record<string, string> = {
-    authorization: 'Bearer test-token',
+    'x-access-role': 'admin',
     'x-learner-key': 'learner-1',
   },
 ): NextRequest {
@@ -18,9 +18,6 @@ function request(
 }
 
 describe('whiteboard visibility callback route', () => {
-  beforeEach(() => vi.stubEnv('PERSISTENCE_DEV_TOKEN', 'test-token'));
-  afterEach(() => vi.unstubAllEnvs());
-
   it('does not let malformed, unauthenticated, or mismatched callbacks settle the owner', async () => {
     let queryId = '';
     const pending = queryWhiteboardVisibility({
@@ -39,7 +36,7 @@ describe('whiteboard visibility callback route', () => {
         await POST(
           request(
             { queryId, stageId: 'stage-1', visibility: 'closed' },
-            { authorization: 'Bearer wrong', 'x-learner-key': 'learner-1' },
+            { 'x-access-role': 'superuser', 'x-learner-key': 'learner-1' },
           ),
         )
       ).status,

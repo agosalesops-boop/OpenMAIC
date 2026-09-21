@@ -27,6 +27,7 @@ import {
   X,
   Presentation,
   Loader2,
+  LogOut,
 } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { LanguageSwitcher } from '@/components/language-switcher';
@@ -52,7 +53,7 @@ import type {
   UserRequirements,
 } from '@/lib/types/generation';
 import { useSettingsStore } from '@/lib/store/settings';
-import { useIsLearner } from '@/lib/store/access-role';
+import { useIsLearner, useAccessRoleStore } from '@/lib/store/access-role';
 import { hasUsableLLMProvider } from '@/lib/store/settings-validation';
 import { useUserProfileStore, AVATAR_OPTIONS } from '@/lib/store/user-profile';
 import {
@@ -157,6 +158,20 @@ function HomePage() {
     };
   }, [workbenchBuildEnabled]);
   const isLearner = useIsLearner();
+  const sessionRole = useAccessRoleStore((s) => s.role);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await fetch('/api/access-code/logout', { method: 'POST' });
+    } finally {
+      // Full reload clears every client store (Zustand, React state) rather
+      // than trying to reset each one by hand, so a revoked/switched session
+      // can never bleed stale state into the next login.
+      window.location.href = '/';
+    }
+  };
   const workbenchEntryEnabled = workbenchBuildEnabled && workbenchRuntimeEnabled && !isLearner;
   const enterWorkbench = () => {
     const href = workspaceResumeHref(readLastWorkspaceSessionId());
@@ -820,6 +835,23 @@ function HomePage() {
               <Settings className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
             </button>
           </div>
+        )}
+
+        {/* Logout Button — shown once a session is confirmed (any role); a
+            no-op click when access-code gating is disabled entirely, since
+            sessionRole then stays null forever. */}
+        {sessionRole && (
+          <>
+            <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700" />
+            <button
+              onClick={handleLogout}
+              disabled={loggingOut}
+              title={t('accessCode.logout')}
+              className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all disabled:opacity-50"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </>
         )}
       </div>
       <SettingsDialog

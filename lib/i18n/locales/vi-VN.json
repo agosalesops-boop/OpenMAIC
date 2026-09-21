@@ -1846,6 +1846,37 @@
       "capabilities": "Khả năng được cung cấp",
       "offeredNote": "Các model gói này cung cấp. Hãy chọn những model bạn muốn hiện trên thanh tạo bài — mức khả dụng tùy hạng gói của bạn, và model không được hỗ trợ sẽ báo lỗi lúc tạo bài."
     },
+    "accounts": {
+      "nav": null,
+      "title": null,
+      "description": null,
+      "nameLabel": null,
+      "namePlaceholder": null,
+      "roleLabel": null,
+      "roleAdmin": null,
+      "roleLearner": null,
+      "createButton": null,
+      "nameRequired": null,
+      "createError": null,
+      "codeGeneratedTitle": null,
+      "codeGeneratedNotice": null,
+      "codeLabel": null,
+      "doneButton": null,
+      "tableName": null,
+      "tableRole": null,
+      "tableStatus": null,
+      "tableCreated": null,
+      "tableActions": null,
+      "statusActive": null,
+      "statusRevoked": null,
+      "revokeButton": null,
+      "revokeConfirmTitle": null,
+      "revokeConfirmDescription": null,
+      "cancelButton": null,
+      "revokeError": null,
+      "emptyState": null,
+      "loadError": null
+    },
     "skills": {
       "nav": "Skill",
       "title": "Cài đặt skill",
@@ -2002,7 +2033,12 @@
   "accessCode": {
     "title": "Nhập mã truy cập",
     "placeholder": "Mã truy cập",
-    "error": "Mã truy cập không đúng. Vui lòng thử lại."
+    "error": "Mã truy cập không đúng. Vui lòng thử lại.",
+    "logout": null,
+    "bootstrapTitle": null,
+    "bootstrapNotice": null,
+    "bootstrapCodeLabel": null,
+    "continueButton": null
   },
   "proMode": {
     "attach": "Đính kèm tài liệu",

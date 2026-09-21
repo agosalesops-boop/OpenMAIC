@@ -1,19 +1,16 @@
 import { cookies } from 'next/headers';
-import { timingSafeEqual } from 'crypto';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { createAccessToken, type AccessRole } from '@/lib/server/access-token';
-
-function safeEqual(a: string, b: string): boolean {
-  const encoder = new TextEncoder();
-  const bufA = encoder.encode(a);
-  const bufB = encoder.encode(b);
-  return bufA.byteLength === bufB.byteLength && timingSafeEqual(bufA, bufB);
-}
+import { verifyLoginCode } from '@/lib/persistence/accounts';
+import { getServerPersistenceProvider } from '@/lib/persistence/server-provider';
 
 export async function POST(request: Request) {
-  const adminCode = process.env.ACCESS_CODE;
-  const learnerCode = process.env.LEARNER_ACCESS_CODE;
-  if (!adminCode) {
+  const tokenSecret = process.env.ACCOUNT_TOKEN_SECRET;
+  const connectionString = process.env.DATABASE_URL;
+
+  if (!tokenSecret || !connectionString) {
+    // Auth isn't fully configured -- match middleware's wide-open dev mode
+    // instead of a login that can never succeed.
     return apiSuccess({ valid: true, role: 'admin' as AccessRole });
   }
 
@@ -28,18 +25,13 @@ export async function POST(request: Request) {
     return apiError('INVALID_REQUEST', 401, 'Invalid access code');
   }
 
-  // Check both codes with constant-time comparison. Order doesn't leak
-  // anything since both branches always run the same comparison shape.
-  const isAdmin = safeEqual(body.code, adminCode);
-  const isLearner = !!learnerCode && safeEqual(body.code, learnerCode);
-
-  const role: AccessRole | null = isAdmin ? 'admin' : isLearner ? 'learner' : null;
-  if (!role) {
+  const { pool } = await getServerPersistenceProvider(connectionString);
+  const result = await verifyLoginCode(pool, body.code);
+  if (!result) {
     return apiError('INVALID_REQUEST', 401, 'Invalid access code');
   }
 
-  const codeForRole = role === 'admin' ? adminCode : (learnerCode as string);
-  const token = createAccessToken(role, codeForRole);
+  const token = createAccessToken(result.account.id, result.account.role, tokenSecret);
   const cookieStore = await cookies();
   cookieStore.set('openmaic_access', token, {
     httpOnly: true,
@@ -49,5 +41,10 @@ export async function POST(request: Request) {
     secure: process.env.NODE_ENV === 'production',
   });
 
-  return apiSuccess({ valid: true, role });
+  return apiSuccess({
+    valid: true,
+    role: result.account.role,
+    name: result.account.name,
+    ...(result.bootstrapCode ? { bootstrapCode: result.bootstrapCode } : {}),
+  });
 }

@@ -1846,6 +1846,37 @@
       "capabilities": "套餐提供的能力",
       "offeredNote": "套餐提供的模型清单。请在生成界面选择需要使用的模型——是否可用取决于你的套餐档位，不支持的模型会在生成时报错。"
     },
+    "accounts": {
+      "nav": "账号管理",
+      "title": "账号管理",
+      "description": "创建和管理各个管理员与学员的独立登录账号。每个人都有自己的访问码，你可以随时撤销。",
+      "nameLabel": "姓名",
+      "namePlaceholder": "例如：王小明",
+      "roleLabel": "角色",
+      "roleAdmin": "管理员",
+      "roleLearner": "学员",
+      "createButton": "新建账号",
+      "nameRequired": "请先输入姓名。",
+      "createError": "账号创建失败，请重试。",
+      "codeGeneratedTitle": "账号已创建",
+      "codeGeneratedNotice": "请将这个访问码发给{{name}}——它不会再次显示。",
+      "codeLabel": "访问码",
+      "doneButton": "完成",
+      "tableName": "姓名",
+      "tableRole": "角色",
+      "tableStatus": "状态",
+      "tableCreated": "创建时间",
+      "tableActions": "操作",
+      "statusActive": "生效中",
+      "statusRevoked": "已撤销",
+      "revokeButton": "撤销",
+      "revokeConfirmTitle": "确定要撤销这个账号吗？",
+      "revokeConfirmDescription": "{{name}} 将立即被登出，其访问码也会立即失效。此操作无法撤回。",
+      "cancelButton": "取消",
+      "revokeError": "撤销失败，请重试。",
+      "emptyState": "还没有任何账号。",
+      "loadError": "账号列表加载失败。"
+    },
     "skills": {
       "nav": "技能",
       "title": "Skill 设置",
@@ -2002,7 +2033,12 @@
   "accessCode": {
     "title": "请输入访问码",
     "placeholder": "访问码",
-    "error": "访问码错误，请重试。"
+    "error": "访问码错误，请重试。",
+    "logout": "退出登录",
+    "bootstrapTitle": "欢迎，管理员",
+    "bootstrapNotice": "这是你的专属管理员访问码，请立即保存——不会再次显示。你刚才使用的共享访问码之后也不能再用了。",
+    "bootstrapCodeLabel": "你的管理员访问码",
+    "continueButton": "继续"
   },
   "proMode": {
     "attach": "添加材料",

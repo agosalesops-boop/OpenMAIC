@@ -36,10 +36,12 @@ export function getPersistenceLearnerKey(): Promise<string> {
 export async function getPersistenceRequestHeaders(): Promise<Record<string, string>> {
   if (!isBrowserPersistenceEnabled()) return {};
   const resolvedLearnerKey = await getPersistenceLearnerKey();
-  const token = process.env.NEXT_PUBLIC_PERSISTENCE_TOKEN;
+  // Authentication is the signed `openmaic_access` session cookie (sent
+  // automatically) verified by middleware -- no bearer token to attach here
+  // any more. x-learner-key remains: a per-browser device partition key, not
+  // a credential (see lib/persistence/server-auth.ts).
   return {
     'x-learner-key': resolvedLearnerKey,
-    ...(token ? { authorization: `Bearer ${token}` } : {}),
   };
 }
 

@@ -1846,6 +1846,37 @@
       "capabilities": "Capacités proposées",
       "offeredNote": "Modèles proposés par ce forfait. Choisissez ceux que vous voulez voir dans la barre de génération : leur disponibilité dépend de votre niveau de forfait, et les modèles non pris en charge produiront une erreur au moment de la génération."
     },
+    "accounts": {
+      "nav": null,
+      "title": null,
+      "description": null,
+      "nameLabel": null,
+      "namePlaceholder": null,
+      "roleLabel": null,
+      "roleAdmin": null,
+      "roleLearner": null,
+      "createButton": null,
+      "nameRequired": null,
+      "createError": null,
+      "codeGeneratedTitle": null,
+      "codeGeneratedNotice": null,
+      "codeLabel": null,
+      "doneButton": null,
+      "tableName": null,
+      "tableRole": null,
+      "tableStatus": null,
+      "tableCreated": null,
+      "tableActions": null,
+      "statusActive": null,
+      "statusRevoked": null,
+      "revokeButton": null,
+      "revokeConfirmTitle": null,
+      "revokeConfirmDescription": null,
+      "cancelButton": null,
+      "revokeError": null,
+      "emptyState": null,
+      "loadError": null
+    },
     "skills": {
       "nav": "Skills",
       "title": "Paramètres des skills",
@@ -2002,7 +2033,12 @@
   "accessCode": {
     "title": "Saisissez le code d’accès",
     "placeholder": "Code d’accès",
-    "error": "Code d’accès invalide. Veuillez réessayer."
+    "error": "Code d’accès invalide. Veuillez réessayer.",
+    "logout": null,
+    "bootstrapTitle": null,
+    "bootstrapNotice": null,
+    "bootstrapCodeLabel": null,
+    "continueButton": null
   },
   "proMode": {
     "attach": "Joindre un support",

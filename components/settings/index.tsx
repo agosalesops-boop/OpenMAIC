@@ -29,6 +29,7 @@ import {
   Plus,
   CreditCard,
   Sparkles,
+  Users,
 } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
@@ -60,6 +61,7 @@ import type { WebSearchProviderId } from '@/lib/web-search/types';
 import { GeneralSettings } from './general-settings';
 import { SkillSettings } from './skill-settings';
 import { TokenPlanSettings } from './token-plan-settings';
+import { AccountsSettings } from './accounts-settings';
 import { ModelEditDialog } from './model-edit-dialog';
 import { AddProviderDialog, type NewProviderData } from './add-provider-dialog';
 import { AddAudioProviderDialog, type NewAudioProviderData } from './add-audio-provider-dialog';
@@ -562,6 +564,13 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
         );
       case 'token-plan':
         return <h2 className="text-lg font-semibold">{t('settings.tokenPlan.nav')}</h2>;
+      case 'accounts':
+        return (
+          <>
+            <Users className="h-6 w-6 text-muted-foreground" />
+            <h2 className="text-lg font-semibold">{t('settings.accounts.title')}</h2>
+          </>
+        );
       case 'providers':
         if (selectedProvider) {
           return (
@@ -857,6 +866,19 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
             </button>
 
             <button
+              onClick={() => setActiveSection('accounts')}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors text-left min-w-0',
+                activeSection === 'accounts'
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'hover:bg-muted',
+              )}
+            >
+              <Users className="h-4 w-4 shrink-0" />
+              <span className="truncate">{t('settings.accounts.nav')}</span>
+            </button>
+
+            <button
               onClick={() => setActiveSection('general')}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors text-left min-w-0',
@@ -1080,6 +1102,8 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
               {activeSection === 'skills' && <SkillSettings />}
 
               {activeSection === 'token-plan' && <TokenPlanSettings />}
+
+              {activeSection === 'accounts' && <AccountsSettings />}
 
               {activeSection === 'providers' && selectedProvider && (
                 <ProviderConfigPanel
