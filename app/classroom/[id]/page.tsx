@@ -22,6 +22,7 @@ import {
   defaultClassroomLoadDeps,
   runClassroomLoad,
 } from '@/lib/classroom/load-classroom';
+import { CourseCompletionButton } from '@/components/classroom/course-completion-button';
 
 const log = createLogger('Classroom');
 
@@ -247,7 +248,10 @@ export default function ClassroomDetailPage() {
               </div>
             </div>
           ) : (
-            <Stage onRetryOutline={retrySingleOutline} />
+            <>
+              <Stage onRetryOutline={retrySingleOutline} />
+              <CourseCompletionButton stageId={classroomId} />
+            </>
           )}
         </div>
       </MediaStageProvider>

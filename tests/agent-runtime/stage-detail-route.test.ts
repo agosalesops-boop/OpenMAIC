@@ -30,7 +30,12 @@ const STAGE_ID = 'stage-1';
 type NextInit = ConstructorParameters<typeof NextRequest>[1];
 
 function call(handler: unknown, init: NextInit = {}, id = STAGE_ID) {
-  const req = new NextRequest(`http://localhost/api/stages/${id}`, init);
+  // Default to an authenticated admin request (the shape `middleware.ts`
+  // sets after verifying a session cookie); PATCH/DELETE are admin-only.
+  const headers = new Headers(init.headers);
+  if (!headers.has('x-access-role')) headers.set('x-access-role', 'admin');
+  if (!headers.has('x-account-id')) headers.set('x-account-id', 'owner-1');
+  const req = new NextRequest(`http://localhost/api/stages/${id}`, { ...init, headers });
   return (
     handler as (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => Promise<Response>
   )(req, { params: Promise.resolve({ id }) });

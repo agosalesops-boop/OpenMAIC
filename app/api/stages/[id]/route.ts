@@ -27,6 +27,7 @@ import { getOwnerScopedDocumentStore } from '@/lib/server/agent-runtime/owner-sc
 import { ownerApiError, ownerJson, ownerNotFound } from '@/lib/server/agent-runtime/route-response';
 import { withRequestOwnerId } from '@/lib/server/agent-runtime/with-owner';
 import { STAGE_NAME_MAX_LENGTH } from '@/lib/server/agent-runtime/stage-limits';
+import { requireAdminRole } from '@/lib/server/require-admin';
 
 export const runtime = 'nodejs';
 
@@ -77,6 +78,8 @@ export async function GET(req: NextRequest, { params }: Params) {
 // PATCH /api/stages/[id] — rename the course (owner-only).
 export async function PATCH(req: NextRequest, { params }: Params) {
   if (!isAgentRuntimeConfigured()) return new Response('Not found', { status: 404 });
+  const guard = requireAdminRole(req);
+  if (!('accountId' in guard)) return guard;
 
   let body: unknown;
   try {
@@ -179,6 +182,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
 // DELETE /api/stages/[id] — remove the course and its scenes/outline.
 export async function DELETE(req: NextRequest, { params }: Params) {
   if (!isAgentRuntimeConfigured()) return new Response('Not found', { status: 404 });
+  const guard = requireAdminRole(req);
+  if (!('accountId' in guard)) return guard;
 
   return withRequestOwnerId(req, async (ownerId, responseHeaders) => {
     const { id } = await params;

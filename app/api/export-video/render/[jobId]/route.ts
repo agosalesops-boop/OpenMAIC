@@ -3,6 +3,7 @@ import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { proxyFetch } from '@/lib/server/proxy-fetch';
 import { resolveRenderServiceUrl } from '@/lib/server/render-service';
 import { createLogger } from '@/lib/logger';
+import { requireAdminRole } from '@/lib/server/require-admin';
 
 const log = createLogger('ExportVideo Job API');
 
@@ -10,6 +11,9 @@ export const dynamic = 'force-dynamic';
 
 /** Relay a render job's status. Polled by the client while a render runs. */
 export async function GET(req: NextRequest, context: { params: Promise<{ jobId: string }> }) {
+  const guard = requireAdminRole(req);
+  if (!('accountId' in guard)) return guard;
+
   const { jobId } = await context.params;
   const resolved = resolveRenderServiceUrl();
   if ('error' in resolved) {
@@ -35,6 +39,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ jobId: 
 
 /** Cancel a queued/running render job. */
 export async function DELETE(req: NextRequest, context: { params: Promise<{ jobId: string }> }) {
+  const guard = requireAdminRole(req);
+  if (!('accountId' in guard)) return guard;
+
   const { jobId } = await context.params;
   const resolved = resolveRenderServiceUrl();
   if ('error' in resolved) {

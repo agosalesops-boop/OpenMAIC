@@ -9,6 +9,8 @@ import { Pool } from 'pg';
 
 import { validateAppScene, validateAppStage } from '@/lib/document-store/validators';
 import { ensureAccountsSchema } from '@/lib/persistence/accounts';
+import { ensureCourseAssignmentsSchema } from '@/lib/persistence/course-assignments';
+import { ensureCompletionsSchema } from '@/lib/persistence/completions';
 import { lazyAssetByteStore } from '@/lib/persistence/asset-byte-store';
 import { ensureOwnerMaterialSchema } from '@/lib/persistence/owner-materials';
 import { ensureStageMetaSchema } from '@/lib/persistence/stage-meta';
@@ -47,6 +49,8 @@ async function createServerPersistenceProvider(
     await ensureOwnerMaterialSchema(queryable);
     await ensureAssetSchema(queryable);
     await ensureAccountsSchema(queryable);
+    await ensureCourseAssignmentsSchema(queryable);
+    await ensureCompletionsSchema(queryable);
     const withTransaction = nodePostgresTransaction(queryable);
     const byteStore = lazyAssetByteStore(process.env.ASSET_S3_BUCKET, queryable);
     return {

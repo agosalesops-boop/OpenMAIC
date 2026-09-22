@@ -134,7 +134,11 @@ const ROUTES: RouteCase[] = [
       patchStage(
         new NextRequest(`http://localhost/api/stages/${STAGE_ID}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-access-role': 'admin',
+            'x-account-id': 'owner-1',
+          },
           body: JSON.stringify({ name: 'Renamed' }),
         }),
         params(STAGE_ID),
@@ -158,7 +162,10 @@ const ROUTES: RouteCase[] = [
     name: 'DELETE /api/stages/[id]',
     call: () =>
       deleteStage(
-        new NextRequest(`http://localhost/api/stages/${STAGE_ID}`, { method: 'DELETE' }),
+        new NextRequest(`http://localhost/api/stages/${STAGE_ID}`, {
+          method: 'DELETE',
+          headers: { 'x-access-role': 'admin', 'x-account-id': 'owner-1' },
+        }),
         params(STAGE_ID),
       ),
     happyStatus: 200,
@@ -240,7 +247,11 @@ const ROUTES: RouteCase[] = [
       patchFolder(
         new NextRequest(`http://localhost/api/folders/${FOLDER_ID}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-access-role': 'admin',
+            'x-account-id': 'owner-1',
+          },
           body: JSON.stringify({ name: 'Renamed' }),
         }),
         params(FOLDER_ID),
@@ -251,7 +262,10 @@ const ROUTES: RouteCase[] = [
     name: 'DELETE /api/folders/[id]',
     call: () =>
       deleteFolder(
-        new NextRequest(`http://localhost/api/folders/${FOLDER_ID}`, { method: 'DELETE' }),
+        new NextRequest(`http://localhost/api/folders/${FOLDER_ID}`, {
+          method: 'DELETE',
+          headers: { 'x-access-role': 'admin', 'x-account-id': 'owner-1' },
+        }),
         params(FOLDER_ID),
       ),
     happyStatus: 200,
@@ -262,7 +276,11 @@ const ROUTES: RouteCase[] = [
       postFolderMembers(
         new NextRequest('http://localhost/api/folders/members', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-access-role': 'admin',
+            'x-account-id': 'owner-1',
+          },
           body: JSON.stringify({ stageId: STAGE_ID, folderId: FOLDER_ID }),
         }),
       ),

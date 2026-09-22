@@ -29,7 +29,15 @@ function routeRequest(
 ): NextRequest {
   // `NextRequest` already exposes `nextUrl`, which DELETE /api/folders/[id]
   // reads for its `mode` query parameter.
-  return new NextRequest(url, init);
+  //
+  // Default to an authenticated admin request (the shape `middleware.ts`
+  // sets after verifying a session cookie) so every call site doesn't have
+  // to repeat these headers now that the mutating routes are admin-gated;
+  // pass explicit headers to exercise a non-admin/unauthenticated path.
+  const headers = new Headers(init?.headers);
+  if (!headers.has('x-access-role')) headers.set('x-access-role', 'admin');
+  if (!headers.has('x-account-id')) headers.set('x-account-id', 'owner-1');
+  return new NextRequest(url, { ...init, headers });
 }
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) });

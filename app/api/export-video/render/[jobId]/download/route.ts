@@ -3,6 +3,7 @@ import { apiError } from '@/lib/server/api-response';
 import { proxyFetch } from '@/lib/server/proxy-fetch';
 import { resolveRenderServiceUrl } from '@/lib/server/render-service';
 import { createLogger } from '@/lib/logger';
+import { requireAdminRole } from '@/lib/server/require-admin';
 
 const log = createLogger('ExportVideo Download API');
 
@@ -18,6 +19,9 @@ export const dynamic = 'force-dynamic';
  * streams the bytes through here.
  */
 export async function GET(req: NextRequest, context: { params: Promise<{ jobId: string }> }) {
+  const guard = requireAdminRole(req);
+  if (!('accountId' in guard)) return guard;
+
   const { jobId } = await context.params;
   const resolved = resolveRenderServiceUrl();
   if ('error' in resolved) {

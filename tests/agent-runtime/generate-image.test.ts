@@ -181,7 +181,11 @@ describe('generate_image tool', () => {
       }),
     );
     expect(mocks.writeFile).toHaveBeenCalledWith(
-      expect.stringMatching(/stage-owner\/media\/generated-[a-f0-9]{64}\.png$/),
+      // The write target is a real filesystem path built with `path.join`,
+      // so it uses the OS-native separator (`\` on Windows, `/` elsewhere)
+      // -- unlike the returned `src` below, which is a literal URL string
+      // and always forward-slashed.
+      expect.stringMatching(/stage-owner[\\/]media[\\/]generated-[a-f0-9]{64}\.png$/),
       Buffer.from('real-image-bytes'),
     );
     // Success details are provider-neutral: no provider id leaks into the

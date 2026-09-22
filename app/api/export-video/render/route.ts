@@ -4,6 +4,7 @@ import { proxyFetch } from '@/lib/server/proxy-fetch';
 import { resolveRenderServiceUrl } from '@/lib/server/render-service';
 import { capBodyStream } from '@/lib/server/capped-stream';
 import { createLogger } from '@/lib/logger';
+import { requireAdminRole } from '@/lib/server/require-admin';
 
 const log = createLogger('ExportVideo Render API');
 
@@ -44,6 +45,9 @@ function clientIdentity(req: NextRequest): string {
  * can degrade to a local ZIP download.
  */
 export async function POST(req: NextRequest) {
+  const guard = requireAdminRole(req);
+  if (!('accountId' in guard)) return guard;
+
   const resolved = resolveRenderServiceUrl();
   if ('error' in resolved) {
     return apiError('PROVIDER_DISABLED', 501, 'Render service is not configured');

@@ -23,6 +23,8 @@ import { getOwnerScopedDocumentStore } from '@/lib/server/agent-runtime/owner-sc
 import { ownerJson } from '@/lib/server/agent-runtime/route-response';
 import { STAGE_NAME_MAX_LENGTH } from '@/lib/server/agent-runtime/stage-limits';
 import { withRequestOwnerId } from '@/lib/server/agent-runtime/with-owner';
+import { listAssignedStageIds } from '@/lib/persistence/course-assignments';
+import { getServerPersistenceProvider } from '@/lib/persistence/server-provider';
 
 export const runtime = 'nodejs';
 
@@ -32,12 +34,32 @@ function createStageId(): string {
 }
 
 // GET /api/stages — list every stage document owned by the caller.
+//
+// A learner account is filtered to its assigned courses, when it has any
+// (see lib/persistence/course-assignments.ts -- zero assignment rows means
+// unrestricted, so every pre-existing and freshly-created learner keeps
+// seeing everything until an admin starts assigning). Admins always see the
+// full shared library so they have something to assign from.
 export async function GET(req: NextRequest) {
   if (!isAgentRuntimeConfigured()) return new Response('Not found', { status: 404 });
 
   return withRequestOwnerId(req, async (ownerId, responseHeaders) => {
     const store = await getOwnerScopedDocumentStore(ownerId);
     const stages = await store.listDocuments();
+
+    const role = req.headers.get('x-access-role');
+    const accountId = req.headers.get('x-account-id');
+    const connectionString = process.env.DATABASE_URL;
+    if (role === 'learner' && accountId && connectionString) {
+      const { pool } = await getServerPersistenceProvider(connectionString);
+      const assignedIds = await listAssignedStageIds(pool, accountId);
+      if (assignedIds.length > 0) {
+        const assignedSet = new Set(assignedIds);
+        const filtered = stages.filter((stage) => assignedSet.has(stage.id));
+        return ownerJson({ stages: filtered }, 200, responseHeaders);
+      }
+    }
+
     return ownerJson({ stages }, 200, responseHeaders);
   });
 }

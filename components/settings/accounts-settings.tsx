@@ -2,11 +2,13 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
-import { Plus, Copy, Check, ShieldCheck, GraduationCap } from 'lucide-react';
+import { Plus, Copy, Check, ShieldCheck, GraduationCap, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -50,6 +52,13 @@ export function AccountsSettings() {
 
   const [pendingRevoke, setPendingRevoke] = useState<AccountRow | null>(null);
   const [revoking, setRevoking] = useState(false);
+
+  const [coursesFor, setCoursesFor] = useState<AccountRow | null>(null);
+  const [allCourses, setAllCourses] = useState<{ id: string; name: string }[] | null>(null);
+  const [assignedIds, setAssignedIds] = useState<Set<string> | null>(null);
+  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
+  const [coursesLoadError, setCoursesLoadError] = useState(false);
+  const [savingCourses, setSavingCourses] = useState(false);
 
   const loadAccounts = useCallback(() => {
     setLoadError(false);
@@ -122,6 +131,56 @@ export function AccountsSettings() {
       toast.error(t('settings.accounts.revokeError'));
     } finally {
       setRevoking(false);
+    }
+  }
+
+  async function openCoursesDialog(account: AccountRow) {
+    setCoursesFor(account);
+    setAllCourses(null);
+    setAssignedIds(null);
+    setCoursesLoadError(false);
+    try {
+      const [stagesRes, assignmentsRes, completionsRes] = await Promise.all([
+        fetch('/api/stages'),
+        fetch(`/api/accounts/${account.id}/assignments`),
+        fetch(`/api/accounts/${account.id}/completions`),
+      ]);
+      if (!stagesRes.ok || !assignmentsRes.ok || !completionsRes.ok) throw new Error('failed');
+      const stagesData: { stages: { id: string; name: string }[] } = await stagesRes.json();
+      const assignmentsData: { stageIds: string[] } = await assignmentsRes.json();
+      const completionsData: { completions: { stageId: string }[] } = await completionsRes.json();
+      setAllCourses(stagesData.stages.map((s) => ({ id: s.id, name: s.name })));
+      setAssignedIds(new Set(assignmentsData.stageIds));
+      setCompletedIds(new Set(completionsData.completions.map((c) => c.stageId)));
+    } catch {
+      setCoursesLoadError(true);
+    }
+  }
+
+  function toggleCourse(stageId: string, checked: boolean) {
+    setAssignedIds((prev) => {
+      const next = new Set(prev ?? []);
+      if (checked) next.add(stageId);
+      else next.delete(stageId);
+      return next;
+    });
+  }
+
+  async function handleSaveCourses() {
+    if (!coursesFor || !assignedIds) return;
+    setSavingCourses(true);
+    try {
+      const res = await fetch(`/api/accounts/${coursesFor.id}/assignments`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stageIds: Array.from(assignedIds) }),
+      });
+      if (!res.ok) throw new Error('failed');
+      setCoursesFor(null);
+    } catch {
+      toast.error(t('settings.accounts.coursesSaveError'));
+    } finally {
+      setSavingCourses(false);
     }
   }
 
@@ -232,16 +291,29 @@ export function AccountsSettings() {
                 </td>
                 <td className="px-3 py-2.5 text-muted-foreground">{formatDate(account.createdAt)}</td>
                 <td className="px-3 py-2.5 text-right">
-                  {!account.revokedAt && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-destructive hover:text-destructive"
-                      onClick={() => setPendingRevoke(account)}
-                    >
-                      {t('settings.accounts.revokeButton')}
-                    </Button>
-                  )}
+                  <div className="flex items-center justify-end gap-1">
+                    {account.role === 'learner' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 gap-1"
+                        onClick={() => void openCoursesDialog(account)}
+                      >
+                        <BookOpen className="h-3.5 w-3.5" />
+                        {t('settings.accounts.coursesButton')}
+                      </Button>
+                    )}
+                    {!account.revokedAt && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-destructive hover:text-destructive"
+                        onClick={() => setPendingRevoke(account)}
+                      >
+                        {t('settings.accounts.revokeButton')}
+                      </Button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -296,6 +368,77 @@ export function AccountsSettings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Course assignment dialog */}
+      <Dialog open={coursesFor !== null} onOpenChange={(open) => !open && setCoursesFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {t('settings.accounts.coursesDialogTitle', { name: coursesFor?.name ?? '' })}
+            </DialogTitle>
+            <DialogDescription>
+              {t('settings.accounts.coursesDialogDescription', { name: coursesFor?.name ?? '' })}
+            </DialogDescription>
+          </DialogHeader>
+
+          {allCourses === null && !coursesLoadError && (
+            <p className="py-6 text-center text-sm text-muted-foreground">…</p>
+          )}
+          {coursesLoadError && (
+            <p className="py-6 text-center text-sm text-destructive">
+              {t('settings.accounts.coursesLoadError')}
+            </p>
+          )}
+          {allCourses !== null && allCourses.length === 0 && (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {t('settings.accounts.coursesEmptyState')}
+            </p>
+          )}
+          {allCourses !== null && allCourses.length > 0 && assignedIds !== null && (
+            <>
+              {assignedIds.size === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {t('settings.accounts.coursesUnrestrictedNote', { name: coursesFor?.name ?? '' })}
+                </p>
+              )}
+              <ScrollArea className="h-72 rounded-lg border">
+                <div className="p-2 space-y-1">
+                  {allCourses.map((course) => (
+                    <label
+                      key={course.id}
+                      className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50 cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={assignedIds.has(course.id)}
+                        onCheckedChange={(checked) => toggleCourse(course.id, checked === true)}
+                      />
+                      <span className="flex-1 truncate">{course.name}</span>
+                      {completedIds.has(course.id) && (
+                        <Badge variant="secondary" className="gap-1 shrink-0">
+                          <Check className="h-3 w-3" />
+                          {t('settings.accounts.coursesCompletedBadge')}
+                        </Badge>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </ScrollArea>
+            </>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setCoursesFor(null)}>
+              {t('settings.accounts.coursesCloseButton')}
+            </Button>
+            <Button
+              onClick={handleSaveCourses}
+              disabled={savingCourses || allCourses === null || assignedIds === null}
+            >
+              {t('settings.accounts.coursesSaveButton')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

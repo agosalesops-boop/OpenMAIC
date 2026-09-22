@@ -962,6 +962,10 @@
     "notReady": "Available after generation completes"
   },
   "classroom": {
+    "completion": {
+      "markComplete": "Mark as complete",
+      "completed": "Completed"
+    },
     "recentClassrooms": "Recent",
     "today": "Today",
     "yesterday": "Yesterday",
@@ -1875,7 +1879,17 @@
       "cancelButton": "Cancel",
       "revokeError": "Couldn't revoke the account. Try again.",
       "emptyState": "No accounts yet.",
-      "loadError": "Couldn't load accounts."
+      "loadError": "Couldn't load accounts.",
+      "coursesButton": "Courses",
+      "coursesDialogTitle": "Courses for {{name}}",
+      "coursesDialogDescription": "Choose which courses {{name}} can see. Leave everything unchecked to keep unrestricted access to every course.",
+      "coursesEmptyState": "No courses yet.",
+      "coursesLoadError": "Couldn't load courses.",
+      "coursesSaveButton": "Save",
+      "coursesSaveError": "Couldn't save course access. Try again.",
+      "coursesUnrestrictedNote": "No courses assigned — {{name}} can currently see everything.",
+      "coursesCompletedBadge": "Completed",
+      "coursesCloseButton": "Close"
     },
     "skills": {
       "nav": "Skills",
