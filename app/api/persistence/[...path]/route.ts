@@ -277,6 +277,16 @@ export async function handlePersistenceRequest(
     try {
       const path = routeRelativePath(request);
       const action = parseDocumentAction(request.method, path);
+      // Batch 3: the classic-mode document API has no role concept of its
+      // own -- it only ever checked ownership. A learner account owns its
+      // own anonymous-cookie documents just like an admin does, so without
+      // this the classic dashboard let learners rename/edit/delete/create
+      // documents even though the newer workbench routes are admin-gated
+      // (see lib/server/require-admin.ts). Read the role middleware.ts
+      // already verified and stamped onto the request, and forward it into
+      // decideDocumentAccess so mutating actions are forbidden for anyone
+      // who isn't an admin, regardless of ownership.
+      const role = request.headers.get('x-access-role') ?? undefined;
       let access: DocumentAccess = 'allow';
       if (path === '/documents' || path.startsWith('/documents/')) {
         const { pool } = await getServerPersistenceProvider(connectionString, deps.poolFactory);
@@ -290,6 +300,7 @@ export async function handlePersistenceRequest(
               .query('SELECT 1 FROM document_stages WHERE id = $1', [stageId])
               .then((result) => result.rows.length > 0),
           (stageId) => readStageMeta(queryable, stageId),
+          role === 'admin' ? 'admin' : role === 'learner' ? 'learner' : undefined,
         );
       }
 

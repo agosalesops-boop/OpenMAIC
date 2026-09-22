@@ -267,7 +267,14 @@ export function HeaderControls({
       {/* Export / Download — lives to the right of the Pro Switch.
           Not a settings function so it does not belong inside the
           settings pill; kept as a separate sibling sitting between the
-          Pro Switch and the right edge of the chrome. */}
+          Pro Switch and the right edge of the chrome.
+
+          Admin-only: a learner should be able to view a course, mark it
+          complete, and ask questions during learning, but not pull an
+          editable copy of it out via export -- same reasoning as the
+          Settings gear above and the Pro Switch's learner-suppressed
+          toggle handler upstream in stage.tsx. */}
+      {!isLearner && (
       <DropdownMenu modal={false} open={exportMenuOpen} onOpenChange={setExportMenuOpen}>
         <DropdownMenuTrigger asChild>
           <button
@@ -393,6 +400,7 @@ export function HeaderControls({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+      )}
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       {videoExportEnabled && (

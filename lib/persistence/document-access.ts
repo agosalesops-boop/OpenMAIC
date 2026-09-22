@@ -55,14 +55,28 @@ export function parseDocumentAction(method: string, url: string): DocumentAction
   return { kind: 'unknown' };
 }
 
+export type DocumentRole = 'admin' | 'learner' | undefined;
+
+/**
+ * Actions that mutate a document (or a piece of it) rather than just read
+ * it. Batch 3: a learner may view and complete a course but never rename,
+ * edit, delete, or create one -- the classic-mode dashboard's own gate,
+ * mirroring the admin-only rename/delete already enforced on the workbench
+ * side (see lib/server/require-admin.ts). `read`/`list` stay open to any
+ * owner, learner or admin, so viewing and the classroom itself keep working.
+ */
+const MUTATING_ACTIONS = new Set<DocumentAction['kind']>(['write', 'delete', 'create']);
+
 export async function decideDocumentAccess(
   action: DocumentAction,
   ownerId: string | undefined,
   readMeta: StageMetaReader,
   documentExists: DocumentExistenceReader,
   rereadMeta: StageMetaReader = readMeta,
+  role: DocumentRole = undefined,
 ): Promise<DocumentAccess> {
   if (!ownerId) return 'forbid';
+  if (role !== 'admin' && MUTATING_ACTIONS.has(action.kind)) return 'forbid';
   switch (action.kind) {
     case 'list':
     case 'unknown':

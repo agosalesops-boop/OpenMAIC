@@ -1349,6 +1349,7 @@ function HomePage() {
                               classroom={classroom}
                               slide={thumbnails[classroom.id]}
                               formatDate={formatDate}
+                              isLearner={isLearner}
                               onDelete={handleDelete}
                               onRename={handleRename}
                               confirmingDelete={pendingDeleteId === classroom.id}
@@ -1695,6 +1696,7 @@ function ClassroomCard({
   classroom,
   slide,
   formatDate,
+  isLearner,
   overlay,
   onDelete,
   onRename,
@@ -1706,6 +1708,11 @@ function ClassroomCard({
   classroom: StageListItem;
   slide?: Slide;
   formatDate: (ts: number) => string;
+  /** Learners may view/complete a course but not rename or delete it -- the
+      classic dashboard's own gate, mirroring `decideDocumentAccess`'s
+      admin-only write/delete enforcement in lib/persistence/document-access.ts.
+      Hiding the controls here is a UI nicety on top of that real boundary. */
+  isLearner?: boolean;
   /** Extra absolutely-positioned layers over the thumbnail (move menu, badges). */
   overlay?: React.ReactNode;
   onDelete: (id: string, e: React.MouseEvent) => void;
@@ -1743,6 +1750,7 @@ function ClassroomCard({
 
   const startRename = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isLearner) return;
     setNameDraft(classroom.name);
     setEditing(true);
   };
@@ -1830,25 +1838,29 @@ function ClassroomCard({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
             >
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute top-2 right-2 size-7 opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 hover:bg-destructive/80 text-white hover:text-white backdrop-blur-sm rounded-full"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(classroom.id, e);
-                }}
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute top-2 right-11 size-7 opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 hover:bg-black/50 text-white hover:text-white backdrop-blur-sm rounded-full"
-                onClick={startRename}
-              >
-                <Pencil className="size-3.5" />
-              </Button>
+              {!isLearner && (
+                <>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="absolute top-2 right-2 size-7 opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 hover:bg-destructive/80 text-white hover:text-white backdrop-blur-sm rounded-full"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(classroom.id, e);
+                    }}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="absolute top-2 right-11 size-7 opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 hover:bg-black/50 text-white hover:text-white backdrop-blur-sm rounded-full"
+                    onClick={startRename}
+                  >
+                    <Pencil className="size-3.5" />
+                  </Button>
+                </>
+              )}
               {overlay}
             </motion.div>
           )}
@@ -1912,7 +1924,10 @@ function ClassroomCard({
           <Tooltip>
             <TooltipTrigger asChild>
               <p
-                className="font-medium text-[15px] truncate text-foreground/90 min-w-0 cursor-text"
+                className={cn(
+                  'font-medium text-[15px] truncate text-foreground/90 min-w-0',
+                  isLearner ? 'cursor-default' : 'cursor-text',
+                )}
                 onDoubleClick={startRename}
               >
                 {classroom.name}
