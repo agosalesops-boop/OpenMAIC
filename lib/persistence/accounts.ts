@@ -12,6 +12,10 @@ import { customAlphabet } from 'nanoid';
 
 import type { Queryable } from '@openmaic/storage/document/pg';
 
+import { normalizeBatchLabel } from '@/lib/accounts/batch-label';
+
+export { BATCH_LABEL_MAX_LENGTH, normalizeBatchLabel } from '@/lib/accounts/batch-label';
+
 export type AccountRole = 'admin' | 'learner';
 
 export interface Account {
@@ -20,6 +24,32 @@ export interface Account {
   role: AccountRole;
   createdAt: Date;
   revokedAt: Date | null;
+  /**
+   * Free-text cohort ("batch") label, e.g. "Sept 2026 - Sales A". Null for
+   * accounts created before batches existed (reported as "Ungrouped").
+   */
+  batchLabel: string | null;
+}
+
+/** JSON shape of an account as returned by the admin accounts API. */
+export interface SerializedAccount {
+  id: string;
+  name: string;
+  role: AccountRole;
+  createdAt: string;
+  revokedAt: string | null;
+  batchLabel: string | null;
+}
+
+export function serializeAccount(account: Account): SerializedAccount {
+  return {
+    id: account.id,
+    name: account.name,
+    role: account.role,
+    createdAt: account.createdAt.toISOString(),
+    revokedAt: account.revokedAt ? account.revokedAt.toISOString() : null,
+    batchLabel: account.batchLabel,
+  };
 }
 
 interface RawAccountRow extends Record<string, unknown> {
@@ -29,6 +59,7 @@ interface RawAccountRow extends Record<string, unknown> {
   code_hash: string;
   created_at: Date | string;
   revoked_at: Date | string | null;
+  batch_label: string | null;
 }
 
 export const ACCOUNTS_SCHEMA = `
@@ -42,7 +73,11 @@ CREATE TABLE IF NOT EXISTS accounts (
 );
 
 CREATE INDEX IF NOT EXISTS accounts_role_idx ON accounts (role, revoked_at);
+
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS batch_label TEXT;
 `;
+
+const ACCOUNT_COLUMNS = 'id, name, role, code_hash, created_at, revoked_at, batch_label';
 
 export async function ensureAccountsSchema(queryable: Queryable): Promise<void> {
   for (const sql of ACCOUNTS_SCHEMA.split(';')) {
@@ -85,6 +120,7 @@ function toAccount(row: RawAccountRow): Account {
         : row.revoked_at instanceof Date
           ? row.revoked_at
           : new Date(row.revoked_at),
+    batchLabel: row.batch_label ?? null,
   };
 }
 
@@ -105,8 +141,10 @@ export async function createAccount(
   queryable: Queryable,
   name: string,
   role: AccountRole,
+  batchLabel?: string | null,
 ): Promise<{ account: Account; code: string }> {
   const trimmedName = name.trim();
+  const label = normalizeBatchLabel(batchLabel);
   if (!trimmedName) throw new Error('Account name is required');
 
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -115,10 +153,10 @@ export async function createAccount(
     const id = newAccountId();
     try {
       const result = await queryable.query<RawAccountRow>(
-        `INSERT INTO accounts (id, name, role, code_hash)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id, name, role, code_hash, created_at, revoked_at`,
-        [id, trimmedName, role, codeHash],
+        `INSERT INTO accounts (id, name, role, code_hash, batch_label)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING ${ACCOUNT_COLUMNS}`,
+        [id, trimmedName, role, codeHash, label],
       );
       return { account: toAccount(result.rows[0]), code: formatCode(raw) };
     } catch (error) {
@@ -130,7 +168,7 @@ export async function createAccount(
 
 export async function listAccounts(queryable: Queryable): Promise<Account[]> {
   const result = await queryable.query<RawAccountRow>(
-    `SELECT id, name, role, code_hash, created_at, revoked_at
+    `SELECT ${ACCOUNT_COLUMNS}
        FROM accounts
       ORDER BY created_at DESC`,
   );
@@ -159,6 +197,24 @@ export async function revokeAccount(queryable: Queryable, id: string): Promise<b
   return existing.rows.length === 1;
 }
 
+/**
+ * Set (or clear, with null/empty) an account's batch label. Returns the
+ * updated account, or null when no such account exists. Allowed on revoked
+ * accounts too, so historical cohorts can still be tidied up.
+ */
+export async function updateAccountBatchLabel(
+  queryable: Queryable,
+  id: string,
+  batchLabel: unknown,
+): Promise<Account | null> {
+  const result = await queryable.query<RawAccountRow>(
+    `UPDATE accounts SET batch_label = $2 WHERE id = $1 RETURNING ${ACCOUNT_COLUMNS}`,
+    [id, normalizeBatchLabel(batchLabel)],
+  );
+  const row = result.rows[0];
+  return row ? toAccount(row) : null;
+}
+
 /** Look up an active (non-revoked) account by its submitted access code. */
 export async function verifyAccountCode(
   queryable: Queryable,
@@ -168,7 +224,7 @@ export async function verifyAccountCode(
   if (!normalized) return null;
   const codeHash = hashCode(normalized);
   const result = await queryable.query<RawAccountRow>(
-    `SELECT id, name, role, code_hash, created_at, revoked_at
+    `SELECT ${ACCOUNT_COLUMNS}
        FROM accounts
       WHERE code_hash = $1 AND revoked_at IS NULL`,
     [codeHash],
@@ -180,7 +236,7 @@ export async function verifyAccountCode(
 /** Look up an account (active or revoked) by id -- used for per-request revocation checks. */
 export async function getAccountById(queryable: Queryable, id: string): Promise<Account | null> {
   const result = await queryable.query<RawAccountRow>(
-    `SELECT id, name, role, code_hash, created_at, revoked_at FROM accounts WHERE id = $1`,
+    `SELECT ${ACCOUNT_COLUMNS} FROM accounts WHERE id = $1`,
     [id],
   );
   const row = result.rows[0];

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
-import { Plus, Copy, Check, ShieldCheck, GraduationCap, BookOpen } from 'lucide-react';
+import { Plus, Copy, Check, ShieldCheck, GraduationCap, BookOpen, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import type { AccountRole } from '@/lib/persistence/accounts';
+import { BATCH_LABEL_MAX_LENGTH } from '@/lib/accounts/batch-label';
 
 interface AccountRow {
   id: string;
@@ -36,6 +37,7 @@ interface AccountRow {
   role: AccountRole;
   createdAt: string;
   revokedAt: string | null;
+  batchLabel: string | null;
 }
 
 export function AccountsSettings() {
@@ -45,6 +47,7 @@ export function AccountsSettings() {
 
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<AccountRole>('learner');
+  const [newBatch, setNewBatch] = useState('');
   const [creating, setCreating] = useState(false);
 
   const [generatedCode, setGeneratedCode] = useState<{ name: string; code: string } | null>(null);
@@ -52,6 +55,10 @@ export function AccountsSettings() {
 
   const [pendingRevoke, setPendingRevoke] = useState<AccountRow | null>(null);
   const [revoking, setRevoking] = useState(false);
+
+  const [batchFor, setBatchFor] = useState<AccountRow | null>(null);
+  const [batchDraft, setBatchDraft] = useState('');
+  const [savingBatch, setSavingBatch] = useState(false);
 
   const [coursesFor, setCoursesFor] = useState<AccountRow | null>(null);
   const [allCourses, setAllCourses] = useState<{ id: string; name: string }[] | null>(null);
@@ -89,13 +96,14 @@ export function AccountsSettings() {
       const res = await fetch('/api/accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, role: newRole }),
+        body: JSON.stringify({ name, role: newRole, batchLabel: newBatch.trim() || null }),
       });
       if (!res.ok) throw new Error('failed');
       const data: { account: AccountRow; code: string } = await res.json();
       setAccounts((prev) => (prev ? [data.account, ...prev] : [data.account]));
       setGeneratedCode({ name: data.account.name, code: data.code });
       setNewName('');
+      // Keep newBatch: cohorts are usually created back-to-back.
     } catch {
       toast.error(t('settings.accounts.createError'));
     } finally {
@@ -131,6 +139,33 @@ export function AccountsSettings() {
       toast.error(t('settings.accounts.revokeError'));
     } finally {
       setRevoking(false);
+    }
+  }
+
+  function openBatchDialog(account: AccountRow) {
+    setBatchFor(account);
+    setBatchDraft(account.batchLabel ?? '');
+  }
+
+  async function handleSaveBatch(clear = false) {
+    if (!batchFor) return;
+    setSavingBatch(true);
+    try {
+      const res = await fetch(`/api/accounts/${batchFor.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batchLabel: clear ? null : batchDraft.trim() || null }),
+      });
+      if (!res.ok) throw new Error('failed');
+      const data: { account: AccountRow } = await res.json();
+      setAccounts(
+        (prev) => prev?.map((a) => (a.id === data.account.id ? data.account : a)) ?? null,
+      );
+      setBatchFor(null);
+    } catch {
+      toast.error(t('settings.accounts.batchSaveError'));
+    } finally {
+      setSavingBatch(false);
     }
   }
 
@@ -227,6 +262,24 @@ export function AccountsSettings() {
             </SelectContent>
           </Select>
         </div>
+        <div className="w-44 space-y-1.5">
+          <Label htmlFor="new-account-batch" className="text-xs">
+            {t('settings.accounts.batchLabel')}
+          </Label>
+          <Input
+            id="new-account-batch"
+            value={newBatch}
+            maxLength={BATCH_LABEL_MAX_LENGTH}
+            onChange={(e) => setNewBatch(e.target.value)}
+            placeholder={t('settings.accounts.batchPlaceholder')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void handleCreate();
+              }
+            }}
+          />
+        </div>
         <Button onClick={handleCreate} disabled={creating} className="gap-1.5">
           <Plus className="h-4 w-4" />
           {t('settings.accounts.createButton')}
@@ -240,6 +293,7 @@ export function AccountsSettings() {
             <tr>
               <th className="text-left font-medium px-3 py-2">{t('settings.accounts.tableName')}</th>
               <th className="text-left font-medium px-3 py-2">{t('settings.accounts.tableRole')}</th>
+              <th className="text-left font-medium px-3 py-2">{t('settings.accounts.tableBatch')}</th>
               <th className="text-left font-medium px-3 py-2">{t('settings.accounts.tableStatus')}</th>
               <th className="text-left font-medium px-3 py-2">{t('settings.accounts.tableCreated')}</th>
               <th className="text-right font-medium px-3 py-2">{t('settings.accounts.tableActions')}</th>
@@ -248,21 +302,21 @@ export function AccountsSettings() {
           <tbody>
             {accounts === null && (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
                   …
                 </td>
               </tr>
             )}
             {accounts !== null && accounts.length === 0 && !loadError && (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
                   {t('settings.accounts.emptyState')}
                 </td>
               </tr>
             )}
             {loadError && (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-destructive">
+                <td colSpan={6} className="px-3 py-6 text-center text-destructive">
                   {t('settings.accounts.loadError')}
                 </td>
               </tr>
@@ -281,6 +335,23 @@ export function AccountsSettings() {
                       ? t('settings.accounts.roleAdmin')
                       : t('settings.accounts.roleLearner')}
                   </span>
+                </td>
+                <td className="px-3 py-2.5">
+                  <button
+                    type="button"
+                    className="group inline-flex items-center gap-1.5 rounded px-1 -mx-1 text-left hover:bg-muted/60"
+                    onClick={() => openBatchDialog(account)}
+                    title={t('settings.accounts.batchEditTitle', { name: account.name })}
+                  >
+                    {account.batchLabel ? (
+                      <span>{account.batchLabel}</span>
+                    ) : (
+                      <span className="text-muted-foreground italic">
+                        {t('settings.accounts.batchNone')}
+                      </span>
+                    )}
+                    <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                  </button>
                 </td>
                 <td className="px-3 py-2.5">
                   {account.revokedAt ? (
@@ -348,6 +419,54 @@ export function AccountsSettings() {
           <Button className="w-full" onClick={() => setGeneratedCode(null)}>
             {t('settings.accounts.doneButton')}
           </Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* Batch edit dialog */}
+      <Dialog open={batchFor !== null} onOpenChange={(open) => !open && setBatchFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {t('settings.accounts.batchEditTitle', { name: batchFor?.name ?? '' })}
+            </DialogTitle>
+            <DialogDescription>{t('settings.accounts.batchEditDescription')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-account-batch" className="text-xs">
+              {t('settings.accounts.batchLabel')}
+            </Label>
+            <Input
+              id="edit-account-batch"
+              value={batchDraft}
+              maxLength={BATCH_LABEL_MAX_LENGTH}
+              onChange={(e) => setBatchDraft(e.target.value)}
+              placeholder={t('settings.accounts.batchPlaceholder')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void handleSaveBatch();
+                }
+              }}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            {batchFor?.batchLabel && (
+              <Button
+                variant="ghost"
+                className="mr-auto"
+                disabled={savingBatch}
+                onClick={() => void handleSaveBatch(true)}
+              >
+                {t('settings.accounts.batchClearButton')}
+              </Button>
+            )}
+            <Button variant="ghost" onClick={() => setBatchFor(null)}>
+              {t('settings.accounts.cancelButton')}
+            </Button>
+            <Button disabled={savingBatch} onClick={() => void handleSaveBatch()}>
+              {t('settings.accounts.coursesSaveButton')}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

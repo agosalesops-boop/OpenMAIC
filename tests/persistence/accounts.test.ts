@@ -7,7 +7,9 @@ import {
   ensureAccountsSchema,
   getAccountById,
   listAccounts,
+  normalizeBatchLabel,
   revokeAccount,
+  updateAccountBatchLabel,
   verifyAccountCode,
   verifyLoginCode,
 } from '@/lib/persistence/accounts';
@@ -145,6 +147,74 @@ describe('accounts', () => {
       vi.stubEnv('ACCESS_CODE', 'shared-bootstrap-code');
       expect(await verifyLoginCode(pool as never, 'wrong-code')).toBeNull();
       expect(await countAccounts(pool as never)).toBe(0);
+    });
+  });
+
+  describe('batch labels', () => {
+    it('defaults to no batch (ungrouped)', async () => {
+      const { account } = await createAccount(pool as never, 'No Batch', 'learner');
+      expect(account.batchLabel).toBeNull();
+    });
+
+    it('stores a normalized batch label at creation', async () => {
+      const { account } = await createAccount(
+        pool as never,
+        'Batched',
+        'learner',
+        '  Sept   2026 A ',
+      );
+      expect(account.batchLabel).toBe('Sept 2026 A');
+      expect((await getAccountById(pool as never, account.id))?.batchLabel).toBe('Sept 2026 A');
+    });
+
+    it('updates and clears a batch label, including on revoked accounts', async () => {
+      const { account } = await createAccount(pool as never, 'Mover', 'learner', 'Batch 1');
+      await revokeAccount(pool as never, account.id);
+
+      const moved = await updateAccountBatchLabel(pool as never, account.id, 'Batch 2');
+      expect(moved?.batchLabel).toBe('Batch 2');
+
+      const cleared = await updateAccountBatchLabel(pool as never, account.id, '   ');
+      expect(cleared?.batchLabel).toBeNull();
+      expect(cleared?.revokedAt).not.toBeNull();
+    });
+
+    it('reports a missing account when updating an unknown id', async () => {
+      expect(await updateAccountBatchLabel(pool as never, 'acct_missing', 'X')).toBeNull();
+    });
+
+    it('adds the column to a pre-existing accounts table without touching its rows', async () => {
+      const legacy = new PGlite();
+      await legacy.waitReady;
+      const legacyPool = new PGlitePool(legacy);
+      try {
+        await legacy.exec(`CREATE TABLE accounts (
+          id TEXT PRIMARY KEY, name TEXT NOT NULL,
+          role TEXT NOT NULL CHECK (role IN ('admin', 'learner')),
+          code_hash TEXT NOT NULL UNIQUE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(), revoked_at TIMESTAMPTZ)`);
+        await legacy.query(
+          `INSERT INTO accounts (id, name, role, code_hash) VALUES ('acct_old', 'Old', 'learner', 'h')`,
+        );
+
+        await ensureAccountsSchema(legacyPool as never);
+        await ensureAccountsSchema(legacyPool as never); // idempotent
+
+        const old = await getAccountById(legacyPool as never, 'acct_old');
+        expect(old?.name).toBe('Old');
+        expect(old?.batchLabel).toBeNull();
+      } finally {
+        await legacyPool.end();
+      }
+    });
+
+    it('normalizes labels: trims, collapses spaces, keeps case, empties to null', () => {
+      expect(normalizeBatchLabel('  Sales   Team A ')).toBe('Sales Team A');
+      expect(normalizeBatchLabel('sales team a')).toBe('sales team a');
+      expect(normalizeBatchLabel('')).toBeNull();
+      expect(normalizeBatchLabel(null)).toBeNull();
+      expect(normalizeBatchLabel(42)).toBeNull();
+      expect(normalizeBatchLabel('x'.repeat(200))?.length).toBe(80);
     });
   });
 });

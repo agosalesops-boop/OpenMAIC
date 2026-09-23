@@ -1,23 +1,13 @@
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { requireAdminRole } from '@/lib/server/require-admin';
-import { createAccount, listAccounts, type AccountRole } from '@/lib/persistence/accounts';
+import {
+  BATCH_LABEL_MAX_LENGTH,
+  createAccount,
+  listAccounts,
+  serializeAccount,
+  type Account,
+} from '@/lib/persistence/accounts';
 import { getServerPersistenceProvider } from '@/lib/persistence/server-provider';
-
-function serialize(account: {
-  id: string;
-  name: string;
-  role: AccountRole;
-  createdAt: Date;
-  revokedAt: Date | null;
-}) {
-  return {
-    id: account.id,
-    name: account.name,
-    role: account.role,
-    createdAt: account.createdAt.toISOString(),
-    revokedAt: account.revokedAt ? account.revokedAt.toISOString() : null,
-  };
-}
 
 export async function GET(request: Request) {
   const guard = requireAdminRole(request);
@@ -30,7 +20,7 @@ export async function GET(request: Request) {
 
   const { pool } = await getServerPersistenceProvider(connectionString);
   const accounts = await listAccounts(pool);
-  return apiSuccess({ accounts: accounts.map(serialize) });
+  return apiSuccess({ accounts: accounts.map(serializeAccount) });
 }
 
 export async function POST(request: Request) {
@@ -42,7 +32,7 @@ export async function POST(request: Request) {
     return apiError('INTERNAL_ERROR', 503, 'Server persistence not configured');
   }
 
-  let body: { name?: string; role?: string };
+  let body: { name?: string; role?: string; batchLabel?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -50,13 +40,31 @@ export async function POST(request: Request) {
   }
 
   const name = body.name?.trim();
-  const role: AccountRole | undefined =
+  const role: Account['role'] | undefined =
     body.role === 'admin' || body.role === 'learner' ? body.role : undefined;
   if (!name || !role) {
     return apiError('INVALID_REQUEST', 400, 'name and role are required');
   }
 
+  if (body.batchLabel !== undefined && body.batchLabel !== null) {
+    if (
+      typeof body.batchLabel !== 'string' ||
+      body.batchLabel.trim().length > BATCH_LABEL_MAX_LENGTH
+    ) {
+      return apiError(
+        'INVALID_REQUEST',
+        400,
+        `batchLabel must be a string of at most ${BATCH_LABEL_MAX_LENGTH} characters`,
+      );
+    }
+  }
+
   const { pool } = await getServerPersistenceProvider(connectionString);
-  const { account, code } = await createAccount(pool, name, role);
-  return apiSuccess({ account: serialize(account), code });
+  const { account, code } = await createAccount(
+    pool,
+    name,
+    role,
+    (body.batchLabel as string | null | undefined) ?? null,
+  );
+  return apiSuccess({ account: serializeAccount(account), code });
 }
