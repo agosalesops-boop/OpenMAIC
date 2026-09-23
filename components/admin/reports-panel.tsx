@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Admin reporting dashboard (Batch 4): total courses, then learners grouped
+ * Admin reporting dashboard (Batch 4; lives on the /admin page): total courses, then learners grouped
  * by batch with per-learner completion and an expandable per-course
  * checklist. Read-only -- assignments are still changed from Accounts.
  */
@@ -35,7 +35,7 @@ async function fetchDashboardSummary(): Promise<DashboardSummary> {
   return res.json();
 }
 
-export function ReportsSettings() {
+export function ReportsPanel() {
   const { t, locale } = useI18n();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loadError, setLoadError] = useState(false);

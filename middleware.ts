@@ -36,7 +36,7 @@ export async function middleware(request: NextRequest) {
 
   // Whitelist: access-code endpoints (login/status/logout), health check.
   if (pathname.startsWith('/api/access-code/') || pathname === '/api/health') {
-    return NextResponse.next();
+    return nextWithoutIdentityHeaders(request);
   }
 
   let verifiedAccountId: string | null = null;
@@ -86,8 +86,21 @@ export async function middleware(request: NextRequest) {
     );
   }
 
-  // Page requests → let through, frontend shows the login modal.
-  return NextResponse.next();
+  // Page requests → let through, frontend shows the login modal. Identity
+  // headers are stripped so a client can't send its own `x-access-role:
+  // admin` to a server component (e.g. the /admin page's role check).
+  return nextWithoutIdentityHeaders(request);
+}
+
+/** Pass the request on with any client-supplied identity headers removed. */
+function nextWithoutIdentityHeaders(request: NextRequest): NextResponse {
+  if (!request.headers.has('x-access-role') && !request.headers.has('x-account-id')) {
+    return NextResponse.next();
+  }
+  const headers = new Headers(request.headers);
+  headers.delete('x-access-role');
+  headers.delete('x-account-id');
+  return NextResponse.next({ request: { headers } });
 }
 
 export const config = {

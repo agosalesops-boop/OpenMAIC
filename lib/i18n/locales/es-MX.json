@@ -2068,6 +2068,17 @@
     "speed": "Velocidad",
     "language": "Idioma"
   },
+  "admin": {
+    "nav": null,
+    "title": null,
+    "backToCourses": null,
+    "tabLearners": null,
+    "tabReports": null,
+    "stripActiveLearners": null,
+    "stripCourses": null,
+    "stripAvgCompletion": null,
+    "stripViewReport": null
+  },
   "accessCode": {
     "title": "Ingresa el código de acceso",
     "placeholder": "Código de acceso",

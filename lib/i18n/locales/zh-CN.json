@@ -2068,6 +2068,17 @@
     "speed": "语速",
     "language": "语言"
   },
+  "admin": {
+    "nav": null,
+    "title": null,
+    "backToCourses": null,
+    "tabLearners": null,
+    "tabReports": null,
+    "stripActiveLearners": null,
+    "stripCourses": null,
+    "stripAvgCompletion": null,
+    "stripViewReport": null
+  },
   "accessCode": {
     "title": "请输入访问码",
     "placeholder": "访问码",

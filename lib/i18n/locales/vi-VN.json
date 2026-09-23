@@ -2068,6 +2068,17 @@
     "speed": "Tốc độ",
     "language": "Ngôn ngữ"
   },
+  "admin": {
+    "nav": null,
+    "title": null,
+    "backToCourses": null,
+    "tabLearners": null,
+    "tabReports": null,
+    "stripActiveLearners": null,
+    "stripCourses": null,
+    "stripAvgCompletion": null,
+    "stripViewReport": null
+  },
   "accessCode": {
     "title": "Nhập mã truy cập",
     "placeholder": "Mã truy cập",

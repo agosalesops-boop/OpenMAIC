@@ -40,7 +40,7 @@ interface AccountRow {
   batchLabel: string | null;
 }
 
-export function AccountsSettings() {
+export function AccountsPanel() {
   const { t, locale } = useI18n();
   const [accounts, setAccounts] = useState<AccountRow[] | null>(null);
   const [loadError, setLoadError] = useState(false);

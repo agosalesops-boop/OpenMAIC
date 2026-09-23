@@ -28,6 +28,7 @@ import {
   Presentation,
   Loader2,
   LogOut,
+  LayoutDashboard,
 } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { LanguageSwitcher } from '@/components/language-switcher';
@@ -37,6 +38,7 @@ import { InputGroup, InputGroupInput, InputGroupButton } from '@/components/ui/i
 import { Textarea as UITextarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { SettingsDialog } from '@/components/settings';
+import { AdminProgressStrip } from '@/components/admin/admin-progress-strip';
 import { GenerationToolbar } from '@/components/generation/generation-toolbar';
 import { AgentBar } from '@/components/agent/agent-bar';
 import { useTheme } from '@/lib/hooks/use-theme';
@@ -824,6 +826,23 @@ function HomePage() {
 
         <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700" />
 
+        {/* Admin area button -- only once the server has confirmed an admin
+            session (never shown to learners, not even briefly while the
+            session check is still in flight). /admin is also server-gated. */}
+        {sessionRole === 'admin' && (
+          <>
+            <button
+              onClick={() => router.push('/admin')}
+              title={t('admin.nav')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all"
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('admin.nav')}</span>
+            </button>
+            <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700" />
+          </>
+        )}
+
         {/* Settings Button — admin only; learners have nothing here to configure
             and provider API keys shouldn't be reachable from a learner login. */}
         {!isLearner && (
@@ -1078,6 +1097,9 @@ function HomePage() {
           )}
         </AnimatePresence>
       </motion.div>
+
+      {/* ═══ Admin-only progress strip (see AdminProgressStrip) ═══ */}
+      {hydrated && sessionRole === 'admin' && <AdminProgressStrip />}
 
       {/* ═══ Recent classrooms — collapsible ═══ */}
       {/* The library action bar is always present after hydration: it carries

@@ -5,6 +5,7 @@ import {
   buildDashboardSummary,
   csvCell,
   groupLearnersByBatch,
+  summarizeForStrip,
   type LearnerInput,
 } from '@/lib/reporting/dashboard';
 
@@ -186,5 +187,45 @@ describe('CSV export', () => {
       .trimEnd()
       .split('\r\n');
     expect(lines[1]).toBe('Ungrouped,SOLO,Active,Unrestricted (whole library),0,0,,,,');
+  });
+});
+
+describe('summarizeForStrip', () => {
+  it('counts active learners and averages only active, assigned learners', () => {
+    const summary = buildDashboardSummary({
+      courses,
+      learners: [
+        learner('done', 'A'),
+        learner('half', 'A'),
+        learner('free', 'A'),
+        learner('gone', 'A', '2026-09-01T00:00:00Z', true),
+      ],
+      assignments: new Map([
+        ['done', ['c1']],
+        ['half', ['c1', 'c2']],
+        ['gone', ['c1']],
+      ]),
+      completions: new Map([
+        ['done', done({ c1: '2026-09-10T00:00:00Z' })],
+        ['half', done({ c1: '2026-09-10T00:00:00Z' })],
+        ['free', done({ c1: '2026-09-10T00:00:00Z' })],
+      ]),
+    });
+    // 'gone' is revoked (excluded); 'free' is unrestricted (not averaged).
+    expect(summarizeForStrip(summary)).toEqual({
+      activeLearners: 3,
+      totalCourses: 3,
+      averageCompletion: 75, // (100 + 50) / 2
+    });
+  });
+
+  it('reports no average when nobody has assigned courses', () => {
+    const summary = buildDashboardSummary({
+      courses,
+      learners: [learner('free', null)],
+      assignments: new Map(),
+      completions: new Map(),
+    });
+    expect(summarizeForStrip(summary).averageCompletion).toBeNull();
   });
 });

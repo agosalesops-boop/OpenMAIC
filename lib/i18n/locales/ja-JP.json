@@ -2068,6 +2068,17 @@
     "speed": "速度",
     "language": "言語"
   },
+  "admin": {
+    "nav": null,
+    "title": null,
+    "backToCourses": null,
+    "tabLearners": null,
+    "tabReports": null,
+    "stripActiveLearners": null,
+    "stripCourses": null,
+    "stripAvgCompletion": null,
+    "stripViewReport": null
+  },
   "accessCode": {
     "title": "アクセスコードを入力",
     "placeholder": "アクセスコード",

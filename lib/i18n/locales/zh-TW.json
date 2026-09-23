@@ -2053,6 +2053,17 @@
     "speed": "語速",
     "language": "語言"
   },
+  "admin": {
+    "nav": null,
+    "title": null,
+    "backToCourses": null,
+    "tabLearners": null,
+    "tabReports": null,
+    "stripActiveLearners": null,
+    "stripCourses": null,
+    "stripAvgCompletion": null,
+    "stripViewReport": null
+  },
   "accessCode": {
     "title": "請輸入課堂碼",
     "placeholder": "課堂碼",

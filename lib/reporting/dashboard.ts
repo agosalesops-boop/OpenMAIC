@@ -190,6 +190,29 @@ export function groupLearnersByBatch(learners: LearnerReport[]): BatchGroup[] {
   });
 }
 
+/** Front-page admin strip: the three at-a-glance numbers. */
+export interface StripStats {
+  activeLearners: number;
+  totalCourses: number;
+  /** Mean completion % across active learners with assigned courses; null if none. */
+  averageCompletion: number | null;
+}
+
+export function summarizeForStrip(summary: DashboardSummary): StripStats {
+  const active = summary.learners.filter((l) => !l.revoked);
+  const measurable = active.filter((l) => l.scope === 'assigned' && l.completionPercent !== null);
+  return {
+    activeLearners: active.length,
+    totalCourses: summary.totalCourses,
+    averageCompletion:
+      measurable.length === 0
+        ? null
+        : Math.round(
+            measurable.reduce((sum, l) => sum + (l.completionPercent ?? 0), 0) / measurable.length,
+          ),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // CSV export
 // ---------------------------------------------------------------------------

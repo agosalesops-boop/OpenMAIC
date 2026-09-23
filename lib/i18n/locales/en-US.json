@@ -1927,7 +1927,7 @@
       "notCompleted": "Not completed",
       "csvYes": "Yes",
       "csvNo": "No",
-      "unrestrictedFootnote": "Unrestricted learners have no assigned courses, so their progress is shown against the whole library and left out of batch averages. Assign courses from Accounts → Courses to track them against a set list."
+      "unrestrictedFootnote": "Unrestricted learners have no assigned courses, so their progress is shown against the whole library and left out of batch averages. Assign courses from Learners → Courses to track them against a set list."
     },
     "skills": {
       "nav": "Skills",
@@ -2099,6 +2099,17 @@
     "badgeExit": "Back to classic",
     "launchPlaceholder": "Describe the learning experience you want to create",
     "launchSend": "Start build"
+  },
+  "admin": {
+    "nav": "Admin",
+    "title": "Admin",
+    "backToCourses": "Back to courses",
+    "tabLearners": "Learners",
+    "tabReports": "Reports",
+    "stripActiveLearners": "Active learners",
+    "stripCourses": "Courses",
+    "stripAvgCompletion": "Avg. completion",
+    "stripViewReport": "View full report"
   },
   "accessCode": {
     "title": "Enter Access Code",
