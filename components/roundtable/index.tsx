@@ -226,6 +226,9 @@ export function Roundtable({
   const nonPresentationInputRef = useRef<HTMLTextAreaElement>(null);
   const agentScrollRef = useRef<HTMLDivElement>(null);
   const bubbleScrollRef = useRef<HTMLDivElement>(null);
+  // True while the speech bubble has more text below what's visible -- drives
+  // the bottom fade + visible scrollbar so long narration isn't silently cut.
+  const [bubbleHasMore, setBubbleHasMore] = useState(false);
   const teacherAvatarRef = useRef<HTMLDivElement>(null);
   const studentAvatarRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const userMessageClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -324,6 +327,18 @@ export function Roundtable({
     if (scrollableHeight <= 0) return;
     el.scrollTo({ top: scrollableHeight, behavior: 'smooth' });
   }, [sourceText, isInLiveFlow]);
+
+  // Recompute the "more text below" hint whenever the bubble text changes.
+  // Measured in a frame callback (after layout), never synchronously in the
+  // effect body (react-hooks/set-state-in-effect).
+  const updateBubbleOverflow = useCallback(() => {
+    const el = bubbleScrollRef.current;
+    setBubbleHasMore(!!el && el.scrollHeight - el.clientHeight - el.scrollTop > 4);
+  }, []);
+  useEffect(() => {
+    const frame = requestAnimationFrame(updateBubbleOverflow);
+    return () => cancelAnimationFrame(frame);
+  }, [sourceText, updateBubbleOverflow]);
 
   // Clear user message early when agent starts responding
   useEffect(() => {
@@ -1659,7 +1674,7 @@ export function Roundtable({
                         onPlayPause?.();
                       }}
                       className={cn(
-                        'relative px-4 pt-2 pb-3 rounded-2xl text-[15px] leading-relaxed transition-all border w-[min(420px,calc(100%-3rem))] group/bubble flex flex-col max-h-[110px]',
+                        'relative px-4 pt-2 pb-3 rounded-2xl text-[15px] leading-relaxed transition-all border w-[min(640px,calc(100%-3rem))] group/bubble flex flex-col max-h-[160px]',
                         bubbleRole === 'teacher' ? 'pl-4 pr-10' : 'pl-4 pr-10',
                         bubbleRole === 'user'
                           ? 'bg-purple-600/95 dark:bg-purple-500/95 backdrop-blur-sm border-purple-400/40 dark:border-purple-300/40 text-white rounded-br-sm shadow-md shadow-purple-300/30 dark:shadow-purple-800/30'
@@ -1704,7 +1719,17 @@ export function Roundtable({
                           );
                         })()}
 
-                      <div ref={bubbleScrollRef} className="overflow-y-auto scrollbar-hide">
+                      <div
+                        ref={bubbleScrollRef}
+                        onScroll={updateBubbleOverflow}
+                        className={cn(
+                          'overflow-y-auto [scrollbar-width:thin]',
+                          // Fade the last lines out while there's more text below,
+                          // so learners can see the narration continues.
+                          bubbleHasMore &&
+                            '[mask-image:linear-gradient(to_bottom,black_70%,transparent)]',
+                        )}
+                      >
                         {/* Agent name + audio indicator header */}
                         {bubbleRole !== 'user' && bubbleName && (
                           <div className="flex items-center gap-1 mb-0.5">
