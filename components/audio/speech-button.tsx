@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { Mic, Loader2 } from 'lucide-react';
 import { useAudioRecorder } from '@/lib/hooks/use-audio-recorder';
 import { useASRAvailable } from '@/lib/hooks/use-asr-available';
+import { useIsLearner } from '@/lib/store/access-role';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -78,6 +79,11 @@ export function SpeechButton({
       startRecording();
     }
   };
+
+  // Voice input is admin-only: learners type (see roundtable/index.tsx).
+  // Checked after every hook so hook order never changes between renders.
+  const isLearner = useIsLearner();
+  if (isLearner) return null;
 
   const isMd = size === 'md';
   const sizeClasses = isMd ? 'h-8 w-8' : 'h-6 w-6';

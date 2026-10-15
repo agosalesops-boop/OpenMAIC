@@ -12,7 +12,10 @@
   "home": {
     "slogan": "التعلّم التوليدي في فصل تفاعلي متعدد الوكلاء",
     "greetingWithName": "مرحبًا، {{name}}",
-    "learnerCannotCreate": "إنشاء الدورات مقتصر على المسؤولين في هذا الحساب"
+    "learnerCannotCreate": "إنشاء الدورات مقتصر على المسؤولين في هذا الحساب",
+    "learnerWelcomeName": null,
+    "learnerWelcome": null,
+    "learnerWelcomeHint": null
   },
   "toolbar": {
     "pdfParser": "محلل PDF",

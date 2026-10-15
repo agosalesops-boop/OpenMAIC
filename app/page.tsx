@@ -39,6 +39,7 @@ import { Textarea as UITextarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { SettingsDialog } from '@/components/settings';
 import { AdminProgressStrip } from '@/components/admin/admin-progress-strip';
+import { LearnerWelcome } from '@/components/learner/learner-welcome';
 import { GenerationToolbar } from '@/components/generation/generation-toolbar';
 import { AgentBar } from '@/components/agent/agent-bar';
 import { useTheme } from '@/lib/hooks/use-theme';
@@ -161,6 +162,7 @@ function HomePage() {
   }, [workbenchBuildEnabled]);
   const isLearner = useIsLearner();
   const sessionRole = useAccessRoleStore((s) => s.role);
+  const sessionName = useAccessRoleStore((s) => s.name);
   const [loggingOut, setLoggingOut] = useState(false);
   const handleLogout = async () => {
     if (loggingOut) return;
@@ -936,151 +938,162 @@ function HomePage() {
           {t('home.slogan')}
         </motion.p>
 
-        {/* ── Unified input area ── */}
-        <motion.div
-          initial={heroEnter({ opacity: 0, scale: 0.97 })}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.35 }}
-          className="w-full"
-        >
-          <div
-            data-pro-morph="composer"
-            className="w-full rounded-2xl border border-border/60 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-xl shadow-black/[0.03] dark:shadow-black/20 transition-shadow focus-within:shadow-2xl focus-within:shadow-violet-500/[0.06]"
-          >
-            {/* ── Greeting + Profile + Agents ── */}
-            <div className="relative z-20 flex items-start justify-between">
-              <GreetingBar />
-              <div className="pr-3 pt-3.5 shrink-0">
-                <AgentBar />
-              </div>
-            </div>
-
-            {/* Textarea */}
-            <textarea
-              ref={textareaRef}
-              placeholder={isLearner ? t('home.learnerCannotCreate') : t('upload.requirementPlaceholder')}
-              className="w-full resize-none border-0 bg-transparent px-4 pt-1 pb-2 text-[13px] leading-relaxed placeholder:text-muted-foreground/40 focus:outline-none min-h-[140px] max-h-[300px] disabled:cursor-not-allowed disabled:opacity-60"
-              value={form.requirement}
-              onChange={(e) => updateForm('requirement', e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={4}
-              disabled={isLearner}
-            />
-
-            {/* Toolbar row */}
-            <div className="px-3 pb-3 flex items-end gap-2">
-              <div className="flex-1 min-w-0">
-                <GenerationToolbar
-                  webSearch={form.webSearch}
-                  onWebSearchChange={(v) => updateForm('webSearch', v)}
-                  onSettingsOpen={(section) => {
-                    setSettingsSection(section);
-                    setSettingsOpen(true);
-                  }}
-                  courseMaterials={form.courseMaterials}
-                  onCourseMaterialsAdd={addCourseMaterials}
-                  onCourseMaterialRemove={removeCourseMaterial}
-                  onPdfError={setError}
-                  materialsLocked={preparingGenerate}
-                />
-              </div>
-
-              {/* Interactive mode toggle */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <InteractiveModeButton
-                    pressed={form.interactiveMode}
-                    label={t('toolbar.interactiveModeLabel')}
-                    onPressedChange={(pressed) => updateForm('interactiveMode', pressed)}
-                  />
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
-                  {t('toolbar.interactiveModeHint')}
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Voice input */}
-              <SpeechButton
-                size="md"
-                onTranscription={(text) => {
-                  setForm((prev) => {
-                    const next = prev.requirement + (prev.requirement ? ' ' : '') + text;
-                    updateRequirementCache(next);
-                    return { ...prev, requirement: next };
-                  });
-                }}
-              />
-
-              {/* Send button */}
-              <button
-                onClick={handleGenerate}
-                disabled={!canGenerate || preparingGenerate}
-                className={cn(
-                  'shrink-0 h-8 rounded-lg flex items-center justify-center gap-1.5 transition-all px-3',
-                  canGenerate && !preparingGenerate
-                    ? 'bg-primary text-primary-foreground hover:opacity-90 shadow-sm cursor-pointer'
-                    : 'bg-muted text-muted-foreground/40 cursor-not-allowed',
-                )}
+        {/* ── Learner welcome ── Learners can't create courses, so instead of
+            the (disabled) course-generation box they get a short welcome and
+            their course library right below. */}
+        {isLearner ? (
+          <LearnerWelcome name={sessionName} />
+        ) : (
+          <>
+            {/* ── Unified input area ── */}
+            <motion.div
+              initial={heroEnter({ opacity: 0, scale: 0.97 })}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.35 }}
+              className="w-full"
+            >
+              <div
+                data-pro-morph="composer"
+                className="w-full rounded-2xl border border-border/60 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-xl shadow-black/[0.03] dark:shadow-black/20 transition-shadow focus-within:shadow-2xl focus-within:shadow-violet-500/[0.06]"
               >
-                <span className="text-xs font-medium">
-                  {preparingGenerate ? t('stage.generating') : t('toolbar.enterClassroom')}
-                </span>
-                {preparingGenerate ? (
-                  <Loader2 className="size-3.5 animate-spin" />
-                ) : (
-                  <ArrowUp className="size-3.5" />
-                )}
-              </button>
-            </div>
-          </div>
-        </motion.div>
+                {/* ── Greeting + Profile + Agents ── */}
+                <div className="relative z-20 flex items-start justify-between">
+                  <GreetingBar />
+                  <div className="pr-3 pt-3.5 shrink-0">
+                    <AgentBar />
+                  </div>
+                </div>
 
-        {showVocationalTestUi && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="mt-2 flex w-full justify-start px-1"
-          >
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={form.vocationalTestMode}
-                  onClick={() => updateForm('vocationalTestMode', !form.vocationalTestMode)}
-                  className={cn(
-                    'inline-flex h-7 items-center gap-2 rounded-full border px-2.5 text-[11px] font-medium transition-colors',
-                    form.vocationalTestMode
-                      ? 'border-cyan-400/70 bg-cyan-50 text-cyan-700 shadow-[0_0_10px_rgba(6,182,212,0.16)] dark:bg-cyan-950/40 dark:text-cyan-300'
-                      : 'border-border/70 bg-background/70 text-muted-foreground hover:border-cyan-300/60 hover:text-cyan-700 dark:hover:text-cyan-300',
-                  )}
-                >
-                  <span className="rounded-full bg-cyan-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-normal text-cyan-700 dark:bg-cyan-900/45 dark:text-cyan-300">
-                    测试功能
-                  </span>
-                  <Sparkles className="size-3.5" />
-                  <span>职教任务</span>
-                  <span
+                {/* Textarea */}
+                <textarea
+                  ref={textareaRef}
+                  placeholder={
+                    isLearner ? t('home.learnerCannotCreate') : t('upload.requirementPlaceholder')
+                  }
+                  className="w-full resize-none border-0 bg-transparent px-4 pt-1 pb-2 text-[13px] leading-relaxed placeholder:text-muted-foreground/40 focus:outline-none min-h-[140px] max-h-[300px] disabled:cursor-not-allowed disabled:opacity-60"
+                  value={form.requirement}
+                  onChange={(e) => updateForm('requirement', e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  rows={4}
+                  disabled={isLearner}
+                />
+
+                {/* Toolbar row */}
+                <div className="px-3 pb-3 flex items-end gap-2">
+                  <div className="flex-1 min-w-0">
+                    <GenerationToolbar
+                      webSearch={form.webSearch}
+                      onWebSearchChange={(v) => updateForm('webSearch', v)}
+                      onSettingsOpen={(section) => {
+                        setSettingsSection(section);
+                        setSettingsOpen(true);
+                      }}
+                      courseMaterials={form.courseMaterials}
+                      onCourseMaterialsAdd={addCourseMaterials}
+                      onCourseMaterialRemove={removeCourseMaterial}
+                      onPdfError={setError}
+                      materialsLocked={preparingGenerate}
+                    />
+                  </div>
+
+                  {/* Interactive mode toggle */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <InteractiveModeButton
+                        pressed={form.interactiveMode}
+                        label={t('toolbar.interactiveModeLabel')}
+                        onPressedChange={(pressed) => updateForm('interactiveMode', pressed)}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      {t('toolbar.interactiveModeHint')}
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {/* Voice input */}
+                  <SpeechButton
+                    size="md"
+                    onTranscription={(text) => {
+                      setForm((prev) => {
+                        const next = prev.requirement + (prev.requirement ? ' ' : '') + text;
+                        updateRequirementCache(next);
+                        return { ...prev, requirement: next };
+                      });
+                    }}
+                  />
+
+                  {/* Send button */}
+                  <button
+                    onClick={handleGenerate}
+                    disabled={!canGenerate || preparingGenerate}
                     className={cn(
-                      'relative h-3.5 w-6 rounded-full transition-colors',
-                      form.vocationalTestMode ? 'bg-cyan-500' : 'bg-muted-foreground/25',
+                      'shrink-0 h-8 rounded-lg flex items-center justify-center gap-1.5 transition-all px-3',
+                      canGenerate && !preparingGenerate
+                        ? 'bg-primary text-primary-foreground hover:opacity-90 shadow-sm cursor-pointer'
+                        : 'bg-muted text-muted-foreground/40 cursor-not-allowed',
                     )}
                   >
-                    <span
+                    <span className="text-xs font-medium">
+                      {preparingGenerate ? t('stage.generating') : t('toolbar.enterClassroom')}
+                    </span>
+                    {preparingGenerate ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <ArrowUp className="size-3.5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+
+            {showVocationalTestUi && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="mt-2 flex w-full justify-start px-1"
+              >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={form.vocationalTestMode}
+                      onClick={() => updateForm('vocationalTestMode', !form.vocationalTestMode)}
                       className={cn(
-                        'absolute left-0.5 top-0.5 size-2.5 rounded-full bg-white transition-transform',
-                        form.vocationalTestMode ? 'translate-x-2.5' : 'translate-x-0',
+                        'inline-flex h-7 items-center gap-2 rounded-full border px-2.5 text-[11px] font-medium transition-colors',
+                        form.vocationalTestMode
+                          ? 'border-cyan-400/70 bg-cyan-50 text-cyan-700 shadow-[0_0_10px_rgba(6,182,212,0.16)] dark:bg-cyan-950/40 dark:text-cyan-300'
+                          : 'border-border/70 bg-background/70 text-muted-foreground hover:border-cyan-300/60 hover:text-cyan-700 dark:hover:text-cyan-300',
                       )}
-                    />
-                  </span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                从当前输入框提交职教实操训练测试
-              </TooltipContent>
-            </Tooltip>
-          </motion.div>
+                    >
+                      <span className="rounded-full bg-cyan-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-normal text-cyan-700 dark:bg-cyan-900/45 dark:text-cyan-300">
+                        测试功能
+                      </span>
+                      <Sparkles className="size-3.5" />
+                      <span>职教任务</span>
+                      <span
+                        className={cn(
+                          'relative h-3.5 w-6 rounded-full transition-colors',
+                          form.vocationalTestMode ? 'bg-cyan-500' : 'bg-muted-foreground/25',
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'absolute left-0.5 top-0.5 size-2.5 rounded-full bg-white transition-transform',
+                            form.vocationalTestMode ? 'translate-x-2.5' : 'translate-x-0',
+                          )}
+                        />
+                      </span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    从当前输入框提交职教实操训练测试
+                  </TooltipContent>
+                </Tooltip>
+              </motion.div>
+            )}
+          </>
         )}
 
         {/* ── Error ── */}

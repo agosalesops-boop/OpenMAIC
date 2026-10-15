@@ -12,7 +12,10 @@
   "home": {
     "slogan": "Generative Learning in Multi-Agent Interactive Classroom",
     "greetingWithName": "Hi, {{name}}",
-    "learnerCannotCreate": "Course creation is limited to admins on this account"
+    "learnerCannotCreate": "Course creation is limited to admins on this account",
+    "learnerWelcomeName": "Hi, {{name}} 👋",
+    "learnerWelcome": "Welcome 👋",
+    "learnerWelcomeHint": "Here are your courses — pick one below to start learning."
   },
   "toolbar": {
     "pdfParser": "Parser",

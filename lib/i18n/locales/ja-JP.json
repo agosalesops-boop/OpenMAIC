@@ -12,7 +12,10 @@
   "home": {
     "slogan": "マルチエージェント対話型教室で生成的に学ぶ",
     "greetingWithName": "こんにちは、{{name}}さん",
-    "learnerCannotCreate": "コースの作成はこのアカウントの管理者に限定されています"
+    "learnerCannotCreate": "コースの作成はこのアカウントの管理者に限定されています",
+    "learnerWelcomeName": null,
+    "learnerWelcome": null,
+    "learnerWelcomeHint": null
   },
   "toolbar": {
     "pdfParser": "パーサー",

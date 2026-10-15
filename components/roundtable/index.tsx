@@ -25,6 +25,7 @@ import { useAudioRecorder } from '@/lib/hooks/use-audio-recorder';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { toast } from 'sonner';
 import { useSettingsStore, PLAYBACK_SPEEDS } from '@/lib/store/settings';
+import { useIsLearner } from '@/lib/store/access-role';
 import { ProactiveCard } from '@/components/chat/proactive-card';
 import { PresentationSpeechOverlay } from '@/components/roundtable/presentation-speech-overlay';
 import { AvatarDisplay } from '@/components/ui/avatar-display';
@@ -211,7 +212,12 @@ export function Roundtable({
   const ttsMuted = useSettingsStore((s) => s.ttsMuted);
   const setTTSMuted = useSettingsStore((s) => s.setTTSMuted);
   const ttsEnabled = useSettingsStore((state) => state.ttsEnabled);
-  const asrEnabled = useSettingsStore((state) => state.asrEnabled);
+  // Learners ask questions by typing only: speech recognition proved
+  // unreliable, so voice input is removed for learner logins (admins keep it).
+  // Treating ASR as off makes every "your turn" prompt fall back to text input.
+  const hideVoiceInput = useIsLearner();
+  const asrSetting = useSettingsStore((state) => state.asrEnabled);
+  const asrEnabled = asrSetting && !hideVoiceInput;
   const chatAreaWidth = useSettingsStore((s) => s.chatAreaWidth);
   const ttsVolume = useSettingsStore((s) => s.ttsVolume);
   const setTTSVolume = useSettingsStore((s) => s.setTTSVolume);
@@ -1045,28 +1051,34 @@ export function Roundtable({
                     </div>
                   ) : (
                     <>
-                      <button
-                        aria-label={
-                          asrEnabled
-                            ? t('roundtable.voiceInput')
-                            : t('roundtable.voiceInputDisabled')
-                        }
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (asrEnabled) handleToggleVoice();
-                        }}
-                        disabled={!asrEnabled}
-                        className={cn(
-                          'w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95',
-                          !asrEnabled
-                            ? 'text-gray-500 cursor-not-allowed'
-                            : isVoiceOpen
-                              ? 'bg-purple-600 text-white'
-                              : 'text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white hover:bg-gray-200/50 dark:hover:bg-white/10',
-                        )}
-                      >
-                        {asrEnabled ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-                      </button>
+                      {!hideVoiceInput && (
+                        <button
+                          aria-label={
+                            asrEnabled
+                              ? t('roundtable.voiceInput')
+                              : t('roundtable.voiceInputDisabled')
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (asrEnabled) handleToggleVoice();
+                          }}
+                          disabled={!asrEnabled}
+                          className={cn(
+                            'w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95',
+                            !asrEnabled
+                              ? 'text-gray-500 cursor-not-allowed'
+                              : isVoiceOpen
+                                ? 'bg-purple-600 text-white'
+                                : 'text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white hover:bg-gray-200/50 dark:hover:bg-white/10',
+                          )}
+                        >
+                          {asrEnabled ? (
+                            <Mic className="w-4 h-4" />
+                          ) : (
+                            <MicOff className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
                       <button
                         aria-label={t('roundtable.textInput')}
                         onClick={(e) => {
@@ -2112,27 +2124,29 @@ export function Roundtable({
                 </div>
               ) : (
                 <>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (asrEnabled) handleToggleVoice();
-                    }}
-                    disabled={!asrEnabled}
-                    className={cn(
-                      'w-8 h-8 rounded-full border flex items-center justify-center transition-all active:scale-95 shadow-sm',
-                      !asrEnabled
-                        ? 'bg-gray-100 dark:bg-gray-800/50 text-gray-300 dark:text-gray-600 border-gray-200 dark:border-gray-700 cursor-not-allowed'
-                        : isVoiceOpen
-                          ? 'bg-purple-600 dark:bg-purple-500 border-purple-600 dark:border-purple-500 text-white shadow-purple-200 dark:shadow-purple-800'
-                          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-400 hover:border-purple-200 dark:hover:border-purple-700',
-                    )}
-                  >
-                    {asrEnabled ? (
-                      <Mic className="w-3.5 h-3.5" />
-                    ) : (
-                      <MicOff className="w-3.5 h-3.5" />
-                    )}
-                  </button>
+                  {!hideVoiceInput && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (asrEnabled) handleToggleVoice();
+                      }}
+                      disabled={!asrEnabled}
+                      className={cn(
+                        'w-8 h-8 rounded-full border flex items-center justify-center transition-all active:scale-95 shadow-sm',
+                        !asrEnabled
+                          ? 'bg-gray-100 dark:bg-gray-800/50 text-gray-300 dark:text-gray-600 border-gray-200 dark:border-gray-700 cursor-not-allowed'
+                          : isVoiceOpen
+                            ? 'bg-purple-600 dark:bg-purple-500 border-purple-600 dark:border-purple-500 text-white shadow-purple-200 dark:shadow-purple-800'
+                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-400 hover:border-purple-200 dark:hover:border-purple-700',
+                      )}
+                    >
+                      {asrEnabled ? (
+                        <Mic className="w-3.5 h-3.5" />
+                      ) : (
+                        <MicOff className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

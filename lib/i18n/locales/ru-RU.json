@@ -12,7 +12,10 @@
   "home": {
     "slogan": "Generative Learning in Multi-Agent Interactive Classroom",
     "greetingWithName": "Привет, {{name}}",
-    "learnerCannotCreate": "Создание курсов доступно только администраторам этого аккаунта"
+    "learnerCannotCreate": "Создание курсов доступно только администраторам этого аккаунта",
+    "learnerWelcomeName": null,
+    "learnerWelcome": null,
+    "learnerWelcomeHint": null
   },
   "toolbar": {
     "pdfParser": "Парсер",

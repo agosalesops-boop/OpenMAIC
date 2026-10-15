@@ -12,7 +12,10 @@
   "home": {
     "slogan": "Generatives Lernen im interaktiven Lernraum mit mehreren KI-Agenten",
     "greetingWithName": "Hallo, {{name}}",
-    "learnerCannotCreate": "Das Erstellen von Kursen ist auf Admins dieses Kontos beschränkt"
+    "learnerCannotCreate": "Das Erstellen von Kursen ist auf Admins dieses Kontos beschränkt",
+    "learnerWelcomeName": null,
+    "learnerWelcome": null,
+    "learnerWelcomeHint": null
   },
   "toolbar": {
     "pdfParser": "Parser",

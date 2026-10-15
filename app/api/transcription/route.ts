@@ -17,6 +17,13 @@ const log = createLogger('Transcription');
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
+  // Voice input is not offered to learners (they ask questions by typing), so
+  // the server refuses learner sessions too -- the hidden mic is not the only
+  // gate. `x-access-role` is set by middleware from the verified session.
+  if (req.headers.get('x-access-role') === 'learner') {
+    return apiError('FORBIDDEN', 403, 'Voice input is not available for learner accounts');
+  }
+
   let resolvedProviderId: string | undefined;
   let resolvedModelId: string | undefined;
   try {

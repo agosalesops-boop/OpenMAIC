@@ -12,7 +12,10 @@
   "home": {
     "slogan": "Học tập sinh tạo trong lớp học tương tác đa tác nhân",
     "greetingWithName": "Chào {{name}}",
-    "learnerCannotCreate": "Chỉ quản trị viên của tài khoản này mới có thể tạo khóa học"
+    "learnerCannotCreate": "Chỉ quản trị viên của tài khoản này mới có thể tạo khóa học",
+    "learnerWelcomeName": null,
+    "learnerWelcome": null,
+    "learnerWelcomeHint": null
   },
   "toolbar": {
     "pdfParser": "Bộ đọc PDF",
