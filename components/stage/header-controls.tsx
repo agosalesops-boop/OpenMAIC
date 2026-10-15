@@ -19,6 +19,7 @@ import { useI18n } from '@/lib/hooks/use-i18n';
 import { useTheme } from '@/lib/hooks/use-theme';
 import { useStageStore } from '@/lib/store';
 import { useIsLearner } from '@/lib/store/access-role';
+import { useClassroomHeaderExtras } from '@/components/classroom/header-extras';
 import { useMediaGenerationStore } from '@/lib/store/media-generation';
 import { useExportPPTX } from '@/lib/export/use-export-pptx';
 import { useExportClassroom } from '@/lib/export/use-export-classroom';
@@ -82,6 +83,8 @@ export function HeaderControls({
   const { t } = useI18n();
   const { theme, setTheme } = useTheme();
   const isLearner = useIsLearner();
+  // Page-provided extras ("Mark as complete"), shown while learning, not editing.
+  const headerExtras = useClassroomHeaderExtras();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [videoDialogOpen, setVideoDialogOpen] = useState(false);
 
@@ -140,6 +143,7 @@ export function HeaderControls({
   // anchors identically too.
   return (
     <div className="flex items-center gap-4">
+      {mode !== 'edit' && headerExtras}
       <div
         className={cn(
           'shrink-0 flex items-center gap-1 backdrop-blur-md shadow-sm rounded-full',

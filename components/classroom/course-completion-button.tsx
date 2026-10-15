@@ -9,8 +9,9 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('CourseCompletion');
 
 /**
- * Floating self-report control for Batch 2's minimal completion tracking.
- * Sits alongside the course player without touching its internals -- fetches
+ * Self-report control for Batch 2's minimal completion tracking. Rendered in
+ * the course header's control cluster (via ClassroomHeaderExtrasProvider) so
+ * it never covers the chat/roundtable area. Fetches
  * its own status on mount and posts a completion on click. A 403 (no signed-in
  * account -- auth disabled, or the request predates middleware setting the
  * header) is treated as "nothing to show" rather than an error.
@@ -58,17 +59,15 @@ export function CourseCompletionButton({ stageId }: { stageId: string }) {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
-      <Button
-        size="sm"
-        variant={completed ? 'secondary' : 'default'}
-        disabled={saving || completed}
-        onClick={handleClick}
-        className="gap-1.5 shadow-lg"
-      >
-        {completed ? <Check className="h-4 w-4" /> : <GraduationCap className="h-4 w-4" />}
-        {completed ? t('classroom.completion.completed') : t('classroom.completion.markComplete')}
-      </Button>
-    </div>
+    <Button
+      size="sm"
+      variant={completed ? 'secondary' : 'default'}
+      disabled={saving || completed}
+      onClick={handleClick}
+      className="shrink-0 gap-1.5 rounded-full shadow-sm"
+    >
+      {completed ? <Check className="h-4 w-4" /> : <GraduationCap className="h-4 w-4" />}
+      {completed ? t('classroom.completion.completed') : t('classroom.completion.markComplete')}
+    </Button>
   );
 }

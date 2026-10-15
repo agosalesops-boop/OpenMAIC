@@ -23,6 +23,7 @@ import {
   runClassroomLoad,
 } from '@/lib/classroom/load-classroom';
 import { CourseCompletionButton } from '@/components/classroom/course-completion-button';
+import { ClassroomHeaderExtrasProvider } from '@/components/classroom/header-extras';
 
 const log = createLogger('Classroom');
 
@@ -248,10 +249,11 @@ export default function ClassroomDetailPage() {
               </div>
             </div>
           ) : (
-            <>
+            <ClassroomHeaderExtrasProvider
+              extras={<CourseCompletionButton stageId={classroomId} />}
+            >
               <Stage onRetryOutline={retrySingleOutline} />
-              <CourseCompletionButton stageId={classroomId} />
-            </>
+            </ClassroomHeaderExtrasProvider>
           )}
         </div>
       </MediaStageProvider>
