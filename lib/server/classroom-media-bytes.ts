@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
+import { classroomMediaInDatabase, putClassroomMediaBlob } from '@/lib/server/classroom-media-db';
 import { CLASSROOMS_DIR } from '@/lib/server/classroom-storage';
 
 function extensionForMime(mime: string): string {
@@ -44,6 +45,12 @@ export async function persistClassroomMediaBytes(input: {
   if (input.signal?.aborted) throw new Error('aborted');
   const hash = createHash('sha256').update(input.bytes).digest('hex');
   const filename = `${input.prefix ?? 'generated'}-${hash}.${extensionForMime(input.mime)}`;
+  if (classroomMediaInDatabase()) {
+    // Vercel: read-only filesystem -- store in the database instead.
+    await putClassroomMediaBlob(input.stageId, ['media', filename], input.bytes, input.mime);
+    if (input.signal?.aborted) throw new Error('aborted');
+    return `/api/classroom-media/${input.stageId}/media/${filename}`;
+  }
   const mediaDir = path.join(CLASSROOMS_DIR, input.stageId, 'media');
   await fs.mkdir(mediaDir, { recursive: true });
   if (input.signal?.aborted) throw new Error('aborted');

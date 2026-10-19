@@ -30,6 +30,7 @@ import {
   MAX_REMOTE_IMAGE_BYTES,
   readResponseBodyWithLimit,
 } from '@/lib/server/bounded-download';
+import { classroomMediaInDatabase, putClassroomMediaBlob } from '@/lib/server/classroom-media-db';
 import { CLASSROOMS_DIR } from '@/lib/server/classroom-storage';
 import type { CourseToolDeps } from './course-tools';
 import { COURSE_STAGE_ID_DESCRIPTION } from './course-stage';
@@ -167,8 +168,14 @@ export async function defaultPersistGeneratedImage({
   const hash = createHash('sha256').update(bytes).digest('hex');
   throwIfAborted(signal);
 
-  const mediaDir = path.join(CLASSROOMS_DIR, stageId, 'media');
   const filename = `generated-${hash}.${extensionForMime(mime)}`;
+  if (classroomMediaInDatabase()) {
+    // Vercel: read-only filesystem -- store in the database instead.
+    await putClassroomMediaBlob(stageId, ['media', filename], bytes, mime);
+    throwIfAborted(signal);
+    return `/api/classroom-media/${stageId}/media/${filename}`;
+  }
+  const mediaDir = path.join(CLASSROOMS_DIR, stageId, 'media');
   await fs.mkdir(mediaDir, { recursive: true });
   throwIfAborted(signal);
   await fs.writeFile(path.join(mediaDir, filename), bytes);

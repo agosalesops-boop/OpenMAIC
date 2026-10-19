@@ -67,6 +67,29 @@ describe('PgMaterialByteStore', () => {
   });
 });
 
+describe('PgMaterialByteStore (classroom media table)', () => {
+  it('keeps classroom media in its own table', async () => {
+    const db = new PGlite();
+    await db.waitReady;
+    const pool = new PGlitePool(db);
+    try {
+      const media = new PgMaterialByteStore(async () => pool as never, 'classroom_media_blobs');
+      const materials = new PgMaterialByteStore(async () => pool as never);
+      await media.put('stage-1/media/a.png', Buffer.from('png'), 'image/png');
+      await expect(media.get('stage-1/media/a.png')).resolves.toEqual(Buffer.from('png'));
+      await expect(materials.get('stage-1/media/a.png')).rejects.toMatchObject({ code: 'ENOENT' });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  it('refuses table names outside the fixed list', () => {
+    expect(() => new PgMaterialByteStore(async () => ({}) as never, 'users' as never)).toThrow(
+      'unsupported blob table',
+    );
+  });
+});
+
 describe('selectMaterialByteStoreKind', () => {
   it('uses PostgreSQL on Vercel when a database is configured', () => {
     expect(selectMaterialByteStoreKind({ VERCEL: '1', DATABASE_URL: 'postgres://x' })).toBe(

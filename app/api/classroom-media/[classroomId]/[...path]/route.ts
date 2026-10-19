@@ -2,6 +2,7 @@ import { promises as fs, createReadStream, type ReadStream } from 'fs';
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { CLASSROOMS_DIR, isValidClassroomId } from '@/lib/server/classroom-storage';
+import { classroomMediaInDatabase, getClassroomMediaBlob } from '@/lib/server/classroom-media-db';
 import { parseRangeHeader } from '@/lib/server/http-range';
 import { createLogger } from '@/lib/logger';
 
@@ -58,6 +59,10 @@ export async function GET(
   const subDir = pathSegments[0];
   if (subDir !== 'media' && subDir !== 'audio') {
     return NextResponse.json({ error: 'Invalid path' }, { status: 404 });
+  }
+
+  if (classroomMediaInDatabase()) {
+    return serveFromDatabase(req, classroomId, pathSegments, joined);
   }
 
   const filePath = path.join(CLASSROOMS_DIR, classroomId, ...pathSegments);
@@ -124,6 +129,61 @@ export async function GET(
     }
     log.error(
       `Classroom media serving failed [classroomId=${classroomId}, path=${joined}]:`,
+      error,
+    );
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+  }
+}
+
+/**
+ * Vercel path: media bytes live in the database (see classroom-media-db.ts),
+ * served with the same headers and Range semantics as the file path above.
+ */
+async function serveFromDatabase(
+  req: NextRequest,
+  classroomId: string,
+  pathSegments: string[],
+  joined: string,
+): Promise<NextResponse> {
+  try {
+    const bytes = await getClassroomMediaBlob(classroomId, pathSegments);
+    if (!bytes) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+    const ext = path.extname(pathSegments[pathSegments.length - 1] ?? '').toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    const range = parseRangeHeader(req.headers.get('range'), bytes.length);
+
+    if (range.kind === 'unsatisfiable') {
+      return new NextResponse(null, {
+        status: 416,
+        headers: { 'Cache-Control': 'no-store', 'Content-Range': `bytes */${bytes.length}` },
+      });
+    }
+    if (range.kind === 'range') {
+      const slice = bytes.subarray(range.start, range.end + 1);
+      return new NextResponse(new Uint8Array(slice), {
+        status: 206,
+        headers: {
+          ...CACHE_HEADERS,
+          'Content-Type': contentType,
+          'Content-Length': String(slice.length),
+          'Content-Range': `bytes ${range.start}-${range.end}/${bytes.length}`,
+          'Accept-Ranges': 'bytes',
+        },
+      });
+    }
+    return new NextResponse(new Uint8Array(bytes), {
+      status: 200,
+      headers: {
+        ...CACHE_HEADERS,
+        'Content-Type': contentType,
+        'Content-Length': String(bytes.length),
+        'Accept-Ranges': 'bytes',
+      },
+    });
+  } catch (error) {
+    log.error(
+      `Classroom media serving (database) failed [classroomId=${classroomId}, path=${joined}]:`,
       error,
     );
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });

@@ -25,6 +25,7 @@ import { createLogger } from '@/lib/logger';
 import { recordGenerationUsage } from '@/lib/server/usage-storage';
 import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
 import { readResponseBodyWithLimit } from '@/lib/server/bounded-download';
+import { classroomMediaInDatabase, putClassroomMediaBlob } from '@/lib/server/classroom-media-db';
 import { CLASSROOMS_DIR } from '@/lib/server/classroom-storage';
 import {
   HOST_AGENT_LIFECYCLE as LIFECYCLE,
@@ -200,8 +201,14 @@ export async function defaultPersistGeneratedVideo({
   const hash = createHash('sha256').update(bytes).digest('hex');
   throwIfAborted(signal);
 
-  const mediaDir = path.join(CLASSROOMS_DIR, stageId, 'media');
   const filename = `generated-${hash}.${extensionForVideoMime(mime)}`;
+  if (classroomMediaInDatabase()) {
+    // Vercel: read-only filesystem -- store in the database instead.
+    await putClassroomMediaBlob(stageId, ['media', filename], bytes, mime);
+    throwIfAborted(signal);
+    return { src: `/api/classroom-media/${stageId}/media/${filename}`, mime };
+  }
+  const mediaDir = path.join(CLASSROOMS_DIR, stageId, 'media');
   await fs.mkdir(mediaDir, { recursive: true });
   throwIfAborted(signal);
   await fs.writeFile(path.join(mediaDir, filename), bytes);

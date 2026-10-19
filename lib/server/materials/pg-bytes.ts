@@ -15,16 +15,24 @@ import type { Queryable } from '@openmaic/storage/document/pg';
 
 import type { MaterialByteInput, MaterialByteStore } from './bytes';
 
-export const MATERIAL_BLOBS_SCHEMA = `
-CREATE TABLE IF NOT EXISTS material_blobs (
+/** Tables this store may use (fixed names only -- never user input). */
+export type BlobTable = 'material_blobs' | 'classroom_media_blobs';
+
+/** Schema for a blob table. RLS is on from creation (the app's role bypasses it). */
+export function blobTableSchema(table: BlobTable): string {
+  return `
+CREATE TABLE IF NOT EXISTS ${table} (
   key TEXT PRIMARY KEY,
   mime TEXT,
   bytes BYTEA NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-ALTER TABLE material_blobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY;
 `;
+}
+
+export const MATERIAL_BLOBS_SCHEMA = blobTableSchema('material_blobs');
 
 async function toBuffer(body: MaterialByteInput): Promise<Buffer> {
   if (Buffer.isBuffer(body)) return body;
@@ -47,12 +55,19 @@ function notFound(key: string): Error {
 export class PgMaterialByteStore implements MaterialByteStore {
   private schemaReady: Promise<void> | null = null;
 
-  constructor(private readonly getQueryable: () => Promise<Queryable>) {}
+  constructor(
+    private readonly getQueryable: () => Promise<Queryable>,
+    private readonly table: BlobTable = 'material_blobs',
+  ) {
+    if (table !== 'material_blobs' && table !== 'classroom_media_blobs') {
+      throw new Error(`unsupported blob table: ${String(table)}`);
+    }
+  }
 
   private async db(): Promise<Queryable> {
     const queryable = await this.getQueryable();
     this.schemaReady ??= (async () => {
-      for (const sql of MATERIAL_BLOBS_SCHEMA.split(';')) {
+      for (const sql of blobTableSchema(this.table).split(';')) {
         const statement = sql.trim();
         if (statement !== '') await queryable.query(statement);
       }
@@ -70,7 +85,7 @@ export class PgMaterialByteStore implements MaterialByteStore {
     const bytes = await toBuffer(body);
     const db = await this.db();
     await db.query(
-      `INSERT INTO material_blobs (key, mime, bytes) VALUES ($1, $2, $3)
+      `INSERT INTO ${this.table} (key, mime, bytes) VALUES ($1, $2, $3)
        ON CONFLICT (key) DO UPDATE SET mime = EXCLUDED.mime, bytes = EXCLUDED.bytes`,
       [key, mime ?? null, bytes],
     );
@@ -79,7 +94,7 @@ export class PgMaterialByteStore implements MaterialByteStore {
   async get(key: string): Promise<Buffer> {
     const db = await this.db();
     const result = await db.query<{ bytes: Buffer | Uint8Array } & Record<string, unknown>>(
-      'SELECT bytes FROM material_blobs WHERE key = $1',
+      `SELECT bytes FROM ${this.table} WHERE key = $1`,
       [key],
     );
     const row = result.rows[0];
@@ -89,6 +104,6 @@ export class PgMaterialByteStore implements MaterialByteStore {
 
   async delete(key: string): Promise<void> {
     const db = await this.db();
-    await db.query('DELETE FROM material_blobs WHERE key = $1', [key]);
+    await db.query(`DELETE FROM ${this.table} WHERE key = $1`, [key]);
   }
 }
