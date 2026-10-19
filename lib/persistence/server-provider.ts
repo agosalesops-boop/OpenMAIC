@@ -9,7 +9,7 @@ import { Pool } from 'pg';
 
 import { validateAppScene, validateAppStage } from '@/lib/document-store/validators';
 import { ensureAccountsSchema } from '@/lib/persistence/accounts';
-import { withSchemaInitLock } from '@/lib/persistence/schema-init-lock';
+import { ensureSchemaOncePerDeploy } from '@/lib/persistence/schema-init-lock';
 import { ensureCourseAssignmentsSchema } from '@/lib/persistence/course-assignments';
 import { ensureCompletionsSchema } from '@/lib/persistence/completions';
 import { lazyAssetByteStore } from '@/lib/persistence/asset-byte-store';
@@ -44,9 +44,9 @@ async function createServerPersistenceProvider(
   const pool = poolFactory(connectionString);
   const queryable = pool as unknown as ConnectableQueryable;
   try {
-    // Serialized across server instances: concurrent cold starts on Vercel
-    // otherwise race on DROP/CREATE TRIGGER (see schema-init-lock.ts).
-    await withSchemaInitLock(pool as never, async (lockedQueryable) => {
+    // Once per deploy, serialized across server instances: concurrent cold
+    // starts on Vercel otherwise race on DDL (see schema-init-lock.ts).
+    await ensureSchemaOncePerDeploy(pool as never, 'persistence', async (lockedQueryable) => {
       const q = lockedQueryable as unknown as ConnectableQueryable;
       await ensureSchema(q);
       await ensureDocumentSchema(q);

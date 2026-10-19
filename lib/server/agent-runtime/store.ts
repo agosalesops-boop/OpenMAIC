@@ -8,6 +8,7 @@ import { extractObservedUrls } from '@openmaic/storage';
 import type { Pool } from 'pg';
 
 import { getServerPersistenceProvider } from '@/lib/persistence/server-provider';
+import { ensureSchemaOncePerDeploy } from '@/lib/persistence/schema-init-lock';
 import { notifyDurableAgentEvent } from './event-notify-bus';
 
 interface AgentSessionStoreState {
@@ -44,7 +45,10 @@ export function nodePostgresTransaction(pool: Pool): WithTransaction {
 
 async function createAgentSessionStore(connectionString: string): Promise<PgAgentSessionStore> {
   const { pool } = await getServerPersistenceProvider(connectionString);
-  await ensureAgentSessionSchema(pool);
+  // Once per deploy, serialized across instances (see schema-init-lock.ts).
+  await ensureSchemaOncePerDeploy(pool as never, 'agent-session', (q) =>
+    ensureAgentSessionSchema(q as never),
+  );
   // URL observations from user-authored prompt/message text are registered
   // inside the same business transaction that creates the session / posts the
   // message (reference session-store semantics), so they commit atomically and

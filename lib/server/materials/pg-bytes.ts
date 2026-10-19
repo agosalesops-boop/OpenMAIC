@@ -67,6 +67,13 @@ export class PgMaterialByteStore implements MaterialByteStore {
   private async db(): Promise<Queryable> {
     const queryable = await this.getQueryable();
     this.schemaReady ??= (async () => {
+      // Skip the DDL when the table already exists: re-running ALTER TABLE on
+      // every cold start takes a strong table lock that can collide with
+      // concurrent reads/writes from other instances.
+      const existing = await queryable.query<{ t: string | null } & Record<string, unknown>>(
+        `SELECT to_regclass('${this.table}')::text AS t`,
+      );
+      if (existing.rows[0]?.t) return;
       for (const sql of blobTableSchema(this.table).split(';')) {
         const statement = sql.trim();
         if (statement !== '') await queryable.query(statement);
