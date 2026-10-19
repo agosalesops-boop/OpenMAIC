@@ -56,9 +56,62 @@ export class LocalMaterialByteStore implements MaterialByteStore {
 
 let sharedStore: MaterialByteStore | null = null;
 
+/**
+ * Which byte layer material uploads use:
+ * - `MATERIAL_BYTE_STORE=postgres` / `local` forces one explicitly;
+ * - otherwise PostgreSQL on Vercel (whose filesystem is read-only, so local
+ *   writes always fail) when DATABASE_URL is set, and the local `data/`
+ *   directory everywhere else (self-hosted, dev, tests).
+ */
+export function selectMaterialByteStoreKind(
+  env: Record<string, string | undefined> = process.env,
+): 'postgres' | 'local' {
+  const forced = env.MATERIAL_BYTE_STORE?.trim().toLowerCase();
+  if (forced === 'postgres' || forced === 'local') return forced;
+  return env.VERCEL && env.DATABASE_URL ? 'postgres' : 'local';
+}
+
 export function getMaterialByteStore(): MaterialByteStore {
-  sharedStore ??= new LocalMaterialByteStore();
+  if (!sharedStore) {
+    if (selectMaterialByteStoreKind() === 'postgres') {
+      // Imported lazily so the local/test path never loads the DB provider.
+      sharedStore = new LazyPgMaterialByteStore();
+    } else {
+      sharedStore = new LocalMaterialByteStore();
+    }
+  }
   return sharedStore;
+}
+
+/** Defers loading the PostgreSQL store (and its provider) until first use. */
+class LazyPgMaterialByteStore implements MaterialByteStore {
+  private inner: Promise<MaterialByteStore> | null = null;
+
+  private store(): Promise<MaterialByteStore> {
+    this.inner ??= (async () => {
+      const [{ PgMaterialByteStore }, { getServerPersistenceProvider }] = await Promise.all([
+        import('./pg-bytes'),
+        import('@/lib/persistence/server-provider'),
+      ]);
+      return new PgMaterialByteStore(async () => {
+        const { pool } = await getServerPersistenceProvider(process.env.DATABASE_URL ?? '');
+        return pool as never;
+      });
+    })();
+    return this.inner;
+  }
+
+  async put(key: string, body: MaterialByteInput, mime?: string): Promise<void> {
+    return (await this.store()).put(key, body, mime);
+  }
+
+  async get(key: string): Promise<Buffer> {
+    return (await this.store()).get(key);
+  }
+
+  async delete(key: string): Promise<void> {
+    return (await this.store()).delete(key);
+  }
 }
 
 export function setMaterialByteStoreForTests(store: MaterialByteStore | null): void {
