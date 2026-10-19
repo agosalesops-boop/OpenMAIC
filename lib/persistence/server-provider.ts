@@ -9,6 +9,7 @@ import { Pool } from 'pg';
 
 import { validateAppScene, validateAppStage } from '@/lib/document-store/validators';
 import { ensureAccountsSchema } from '@/lib/persistence/accounts';
+import { withSchemaInitLock } from '@/lib/persistence/schema-init-lock';
 import { ensureCourseAssignmentsSchema } from '@/lib/persistence/course-assignments';
 import { ensureCompletionsSchema } from '@/lib/persistence/completions';
 import { lazyAssetByteStore } from '@/lib/persistence/asset-byte-store';
@@ -43,14 +44,19 @@ async function createServerPersistenceProvider(
   const pool = poolFactory(connectionString);
   const queryable = pool as unknown as ConnectableQueryable;
   try {
-    await ensureSchema(queryable);
-    await ensureDocumentSchema(queryable);
-    await ensureStageMetaSchema(queryable);
-    await ensureOwnerMaterialSchema(queryable);
-    await ensureAssetSchema(queryable);
-    await ensureAccountsSchema(queryable);
-    await ensureCourseAssignmentsSchema(queryable);
-    await ensureCompletionsSchema(queryable);
+    // Serialized across server instances: concurrent cold starts on Vercel
+    // otherwise race on DROP/CREATE TRIGGER (see schema-init-lock.ts).
+    await withSchemaInitLock(pool as never, async (lockedQueryable) => {
+      const q = lockedQueryable as unknown as ConnectableQueryable;
+      await ensureSchema(q);
+      await ensureDocumentSchema(q);
+      await ensureStageMetaSchema(q);
+      await ensureOwnerMaterialSchema(q);
+      await ensureAssetSchema(q);
+      await ensureAccountsSchema(q);
+      await ensureCourseAssignmentsSchema(q);
+      await ensureCompletionsSchema(q);
+    });
     const withTransaction = nodePostgresTransaction(queryable);
     const byteStore = lazyAssetByteStore(process.env.ASSET_S3_BUCKET, queryable);
     return {
