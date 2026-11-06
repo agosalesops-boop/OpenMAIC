@@ -68,11 +68,46 @@ describe('ensureSchemaOncePerDeploy', () => {
     expect(setup).toHaveBeenCalledWith(client);
     const sql = client.query.mock.calls.map((c) => String(c[0]));
     expect(sql[0]).toBe('BEGIN');
-    expect(sql[1]).toContain('pg_advisory_xact_lock');
-    expect(client.query.mock.calls[1]?.[1]).toEqual([SCHEMA_INIT_LOCK_KEY]);
+    expect(sql[1]).toContain('idle_in_transaction_session_timeout');
+    expect(sql[2]).toContain('lock_timeout');
+    expect(sql[3]).toContain('pg_advisory_xact_lock');
+    expect(client.query.mock.calls[3]?.[1]).toEqual([SCHEMA_INIT_LOCK_KEY]);
+    // The marker table already exists, so no exclusive DDL on it.
+    expect(sql.some((s) => s.includes('CREATE TABLE IF NOT EXISTS openmaic_schema_marker'))).toBe(
+      false,
+    );
+    expect(sql.some((s) => s.includes('ALTER TABLE openmaic_schema_marker'))).toBe(false);
     expect(sql.some((s) => s.includes('INSERT INTO openmaic_schema_marker'))).toBe(true);
     expect(sql[sql.length - 1]).toBe('COMMIT');
     expect(client.release).toHaveBeenCalledOnce();
+  });
+
+  it('creates and secures the marker table only when it does not exist yet', async () => {
+    const { pool, client } = fakePool({ markerTable: false });
+    const setup = vi.fn(async () => undefined);
+    await ensureSchemaOncePerDeploy(pool, 'g', setup, VERCEL);
+    const sql = client.query.mock.calls.map((c) => String(c[0]));
+    expect(sql.some((s) => s.includes('CREATE TABLE IF NOT EXISTS openmaic_schema_marker'))).toBe(
+      true,
+    );
+    expect(sql.some((s) => s.includes('ALTER TABLE openmaic_schema_marker'))).toBe(true);
+    expect(sql[sql.length - 1]).toBe('COMMIT');
+  });
+
+  it('sets the idle timeout before taking any lock', async () => {
+    const { pool, client } = fakePool({ markerTable: true, markerValue: 'sha-1' });
+    await ensureSchemaOncePerDeploy(
+      pool,
+      'g',
+      vi.fn(async () => undefined),
+      VERCEL,
+    );
+    const sql = client.query.mock.calls.map((c) => String(c[0]));
+    const idle = sql.findIndex((s) => s.includes('idle_in_transaction_session_timeout'));
+    const lock = sql.findIndex((s) => s.includes('pg_advisory_xact_lock'));
+    expect(idle).toBeGreaterThan(0);
+    expect(idle).toBeLessThan(lock);
+    expect(sql[idle]).toContain("'30s'");
   });
 
   it('rolls back and releases the client when setup fails', async () => {

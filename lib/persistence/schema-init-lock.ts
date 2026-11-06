@@ -20,6 +20,18 @@
  *   transaction-scoped lock (not a session lock) also works through Supabase's
  *   transaction-mode connection pooler.
  *
+ * Safety nets (added after a frozen Vercel instance left this transaction
+ * open and every login queued behind its lock on the marker table):
+ * - `idle_in_transaction_session_timeout`: if the instance running the setup
+ *   is frozen mid-transaction, Postgres ends that session after
+ *   {@link SETUP_IDLE_TIMEOUT} and rolls it back, releasing every lock, so
+ *   waiting requests recover on their own instead of hanging forever;
+ * - `lock_timeout`: waiting for the advisory lock, and for table locks inside
+ *   the setup, gives up instead of waiting forever; the request fails once and
+ *   the next request retries;
+ * - the marker table's own DDL only runs when the table does not exist yet,
+ *   so a normal deploy never takes an exclusive lock on it.
+ *
  * The deploy id comes from Vercel's system environment variables. Without one
  * (local dev, self-hosted, tests) the setup simply runs every time, as before.
  */
@@ -29,6 +41,13 @@ import type { Pool, PoolClient } from 'pg';
 export const SCHEMA_INIT_LOCK_KEY = 727_151_001;
 
 const MARKER_TABLE = 'openmaic_schema_marker';
+
+/** Postgres ends the setup session after this long idle inside its transaction. */
+export const SETUP_IDLE_TIMEOUT = '30s';
+/** Longest wait for the advisory lock (another instance running the setup). */
+export const SETUP_ADVISORY_LOCK_TIMEOUT = '45s';
+/** Longest wait for any table lock the setup DDL needs once it holds the advisory lock. */
+export const SETUP_TABLE_LOCK_TIMEOUT = '15s';
 
 type MaybePool = Pick<Pool, 'connect' | 'query'> | Record<string, unknown>;
 type Runnable = PoolClient | MaybePool;
@@ -83,18 +102,27 @@ export async function ensureSchemaOncePerDeploy(
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    // A frozen instance must not hold these locks forever (see file header).
+    await client.query(`SET LOCAL idle_in_transaction_session_timeout = '${SETUP_IDLE_TIMEOUT}'`);
+    await client.query(`SET LOCAL lock_timeout = '${SETUP_ADVISORY_LOCK_TIMEOUT}'`);
     await client.query('SELECT pg_advisory_xact_lock($1)', [SCHEMA_INIT_LOCK_KEY]);
+    await client.query(`SET LOCAL lock_timeout = '${SETUP_TABLE_LOCK_TIMEOUT}'`);
     // Re-check under the lock: another instance may have just finished.
     if (!(await markerMatches(client, group, deployId))) {
       await setup(client);
-      await client.query(
-        `CREATE TABLE IF NOT EXISTS ${MARKER_TABLE} (
-           key TEXT PRIMARY KEY,
-           value TEXT NOT NULL,
-           updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-         )`,
+      const marker = await client.query<{ t: string | null }>(
+        `SELECT to_regclass('${MARKER_TABLE}')::text AS t`,
       );
-      await client.query(`ALTER TABLE ${MARKER_TABLE} ENABLE ROW LEVEL SECURITY`);
+      if (!marker.rows[0]?.t) {
+        await client.query(
+          `CREATE TABLE IF NOT EXISTS ${MARKER_TABLE} (
+             key TEXT PRIMARY KEY,
+             value TEXT NOT NULL,
+             updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+           )`,
+        );
+        await client.query(`ALTER TABLE ${MARKER_TABLE} ENABLE ROW LEVEL SECURITY`);
+      }
       await client.query(
         `INSERT INTO ${MARKER_TABLE} (key, value) VALUES ($1, $2)
          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
