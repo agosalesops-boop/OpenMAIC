@@ -233,6 +233,8 @@ export interface MediaFileRecord {
   errorCode?: string; // Structured error code (e.g. 'CONTENT_SENSITIVE')
   ossKey?: string; // Full CDN URL for this media blob
   posterOssKey?: string; // Full CDN URL for the poster blob
+  /** Shared asset-pool ref this generated image was uploaded as (see promote-generated-media). */
+  assetRef?: string;
   createdAt: number;
 }
 

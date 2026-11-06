@@ -46,11 +46,16 @@ export async function generateMediaForOutlines(
   const settings = useSettingsStore.getState();
   const store = useMediaGenerationStore.getState();
 
+  // Slides whose image is already linked to a pooled asset must not be
+  // generated (and paid for) again, even in a browser with no local copy.
+  const alreadyLinked = await loadAlreadyLinkedCheck(stageId);
+
   // Collect all media requests
   const allRequests: MediaGenerationRequest[] = [];
   for (const outline of outlines) {
     if (!outline.mediaGenerations) continue;
     for (const mg of outline.mediaGenerations) {
+      if (mg.type === 'image' && alreadyLinked?.(outline, mg.elementId)) continue;
       // Filter by enabled flags
       if (mg.type === 'image' && !settings.imageGenerationEnabled) continue;
       if (mg.type === 'video' && !settings.videoGenerationEnabled) continue;
@@ -179,6 +184,9 @@ async function generateSingleMedia(
       });
       const objectUrl = URL.createObjectURL(blob);
       useMediaGenerationStore.getState().markDone(req.elementId, objectUrl);
+      // Share the image with every viewer: upload it to the asset pool and
+      // link it into the slide. Best-effort; failures keep the local copy.
+      await promoteImage(stageId, req.elementId, blob);
     } else {
       const result = await callVideoApi(req, abortSignal);
 
@@ -262,6 +270,33 @@ async function generateSingleMedia(
         })
         .catch(() => {}); // best-effort
     }
+  }
+}
+
+type AlreadyLinkedCheck = (outline: SceneOutline, placeholder: string) => boolean;
+
+async function loadAlreadyLinkedCheck(stageId: string): Promise<AlreadyLinkedCheck | undefined> {
+  try {
+    const [{ useStageStore }, { isPlaceholderAlreadyLinked }] = await Promise.all([
+      import('@/lib/store/stage'),
+      import('@/lib/media/promote-generated-media'),
+    ]);
+    const state = useStageStore.getState();
+    if (state.stage?.id !== stageId) return undefined;
+    const scenes = state.scenes;
+    return (outline, placeholder) => isPlaceholderAlreadyLinked(scenes, outline, placeholder);
+  } catch (error) {
+    log.warn('Linked-image check unavailable:', error);
+    return undefined;
+  }
+}
+
+async function promoteImage(stageId: string, placeholder: string, blob: Blob): Promise<void> {
+  try {
+    const { promoteGeneratedImage } = await import('@/lib/media/promote-generated-media');
+    await promoteGeneratedImage(stageId, placeholder, blob);
+  } catch (error) {
+    log.warn(`Image promotion unavailable for ${placeholder}:`, error);
   }
 }
 

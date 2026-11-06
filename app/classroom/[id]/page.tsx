@@ -14,6 +14,7 @@ import { useWhiteboardHistoryStore } from '@/lib/store/whiteboard-history';
 import { createLogger } from '@/lib/logger';
 import { MediaStageProvider } from '@/lib/contexts/media-stage-context';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
+import { promoteLocalGeneratedImages } from '@/lib/media/promote-generated-media';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { fetchStageMeta } from '@/lib/classroom/stage-meta-client';
 import { noteStageOwnership } from '@/lib/classroom/stage-ownership-signal';
@@ -216,9 +217,16 @@ export default function ClassroomDetailPage() {
       // generating its media would waste API calls on a slide that is gone.
       const materializedOrders = new Set(scenes.map((s) => s.order));
       const materializedOutlines = outlines.filter((o) => materializedOrders.has(o.order));
-      generateMediaForOutlines(materializedOutlines, stage.id).catch((err) => {
-        log.warn('[Classroom] Media generation resume error:', err);
-      });
+      // Upload images this browser already holds for still-unlinked slides
+      // first (repairs courses generated before images were pooled), so the
+      // resume below skips them instead of buying them again.
+      const mediaStageId = stage.id;
+      void promoteLocalGeneratedImages(mediaStageId)
+        .catch(() => 0)
+        .then(() => generateMediaForOutlines(materializedOutlines, mediaStageId))
+        .catch((err) => {
+          log.warn('[Classroom] Media generation resume error:', err);
+        });
     }
   }, [loading, error, generateRemaining]);
 
