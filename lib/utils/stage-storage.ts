@@ -730,9 +730,10 @@ async function performStageDeletion(stageId: string): Promise<void> {
  * unscoped listing at all. `GET /api/stages` IS the owner listing — it resolves
  * the anonymous owner from the same cookie the workbench uses and returns that
  * owner's stage documents. Folders list through the owner-scoped
- * `GET /api/folders` (see `listOwnerFoldersFromServer`), while membership stays
- * device-local (Dexie), so the same membership overlay the local path applies
- * keeps courses filed in this browser grouped.
+ * `GET /api/folders` (see `listOwnerFoldersFromServer`), and each course's
+ * folder comes from the server's `folder_id`. Placements this browser made
+ * before they were saved on the server fill in once and are pushed up (see
+ * `pushLocalPlacementsToServer`).
  */
 async function listOwnerStagesFromServer(): Promise<StageListItem[]> {
   const res = await fetch('/api/stages', { credentials: 'include' });
@@ -743,9 +744,14 @@ async function listOwnerStagesFromServer(): Promise<StageListItem[]> {
   if (!body || !Array.isArray(body.stages)) {
     throw new Error('Malformed /api/stages response: expected { stages: [...] }');
   }
+  const summaries = body.stages as DocumentSummary[];
   const memberships = await db.stageFolders.toArray();
-  const folderByStage = new Map(memberships.map((m) => [m.stageId, m.folderId]));
-  return (body.stages as DocumentSummary[])
+  // The server's folder_id is authoritative: it is what every browser and
+  // every colleague sees. This browser's legacy device-local placements only
+  // fill courses the server has not filed, and are pushed up once (below).
+  const folderByStage = localPlacementsToRepair(summaries, memberships);
+  if (folderByStage.size > 0) void pushLocalPlacementsToServer(folderByStage);
+  return summaries
     .map((item) => {
       const base: StageListItem = {
         id: item.id,
@@ -757,10 +763,92 @@ async function listOwnerStagesFromServer(): Promise<StageListItem[]> {
         ...(item.interactiveMode !== undefined ? { interactiveMode: item.interactiveMode } : {}),
         ...(item.taskEngineMode !== undefined ? { taskEngineMode: item.taskEngineMode } : {}),
       };
-      const folderId = folderByStage.get(item.id) ?? item.folderId;
+      const folderId = item.folderId ?? folderByStage.get(item.id);
       return folderId ? { ...base, folderId } : base;
     })
     .sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+/** Set once this browser has pushed its device-local folder placements up. */
+export const FOLDER_PLACEMENTS_SYNCED_KEY = 'openmaic.folderPlacementsSynced.v1';
+
+function folderPlacementsAlreadySynced(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(FOLDER_PLACEMENTS_SYNCED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markFolderPlacementsSynced(): void {
+  try {
+    globalThis.localStorage?.setItem(FOLDER_PLACEMENTS_SYNCED_KEY, '1');
+  } catch {
+    // Storage unavailable: the repair may simply run again next time.
+  }
+}
+
+/**
+ * Device-local placements worth repairing: courses this browser filed into a
+ * folder that the server still lists as unfiled. Empty once this browser has
+ * synced, so a later unfile made elsewhere is never undone from here.
+ */
+export function localPlacementsToRepair(
+  summaries: readonly Pick<DocumentSummary, 'id' | 'folderId'>[],
+  memberships: readonly { stageId: string; folderId?: string }[],
+): Map<string, string> {
+  const repairs = new Map<string, string>();
+  if (folderPlacementsAlreadySynced()) return repairs;
+  const serverFiled = new Map(summaries.map((item) => [item.id, item.folderId]));
+  for (const membership of memberships) {
+    if (!membership.folderId) continue;
+    if (!serverFiled.has(membership.stageId)) continue;
+    if (serverFiled.get(membership.stageId)) continue;
+    repairs.set(membership.stageId, membership.folderId);
+  }
+  return repairs;
+}
+
+/** Save one course's folder on the server (`folderId` null = unfiled). */
+async function saveStageFolderOnServer(
+  stageId: string,
+  folderId: string | null,
+): Promise<Response> {
+  return fetch('/api/folders/members', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stageId, folderId }),
+  });
+}
+
+let pushingPlacements: Promise<void> | undefined;
+
+/**
+ * One-time repair for courses filed before folder placement was saved on the
+ * server: push this browser's placements up. A folder the server no longer
+ * has (404) is skipped. Marked done only when every push was answered.
+ */
+export function pushLocalPlacementsToServer(
+  placements: ReadonlyMap<string, string>,
+): Promise<void> {
+  pushingPlacements ??= (async () => {
+    let allAnswered = true;
+    for (const [stageId, folderId] of placements) {
+      try {
+        const res = await saveStageFolderOnServer(stageId, folderId);
+        // 404: that folder is gone; 403: not an admin (cannot file). Neither retries.
+        if (!res.ok && res.status !== 404 && res.status !== 403) allAnswered = false;
+      } catch {
+        allAnswered = false;
+      }
+    }
+    if (allAnswered) markFolderPlacementsSynced();
+    log.info(`Pushed ${placements.size} device-local folder placement(s) to the server`);
+  })().finally(() => {
+    pushingPlacements = undefined;
+  });
+  return pushingPlacements;
 }
 
 /**
@@ -1346,16 +1434,25 @@ export async function deleteFolder(id: string, mode: DeleteFolderMode = 'ungroup
  * Move a course into a folder, or out of all folders when `folderId` is
  * `undefined`. Idempotent.
  *
- * Membership is device-local either way (the `stageFolders` overlay keeps
- * courses filed in this browser even when the folders themselves live on the
- * server), so only the destination's existence check differs between modes:
- * locally the `folders` table is checked inside the same transaction, while
- * with server persistence on the folder list came from `/api/folders` and the
- * local table has no row for it — the id is trusted from the rendered tree,
- * and the server re-checks existence on its own membership writes.
+ * With server persistence on, the placement is saved on the server first
+ * (`POST /api/folders/members`), which checks the folder exists and is what
+ * every browser lists; the local `stageFolders` row is kept as a cache.
+ * Without server persistence the placement is device-local and the `folders`
+ * table is checked inside the same transaction as the write.
  */
 export async function setStageFolder(stageId: string, folderId: string | undefined): Promise<void> {
   const now = Date.now();
+  // With server persistence the server is where placement lives, so every
+  // browser and colleague sees the same folders. Save there first; a refusal
+  // leaves the local row untouched so the UI never shows a move that did not
+  // happen.
+  if (isBrowserPersistenceEnabled()) {
+    const res = await saveStageFolderOnServer(stageId, folderId ?? null);
+    if (!res.ok) {
+      if (res.status === 404) throw new Error(`Folder not found: ${folderId}`);
+      throw new Error(`Failed to save folder placement: HTTP ${res.status}`);
+    }
+  }
   // Validate the destination folder exists before writing the membership row.
   // Without this, an import that started inside a folder which is then deleted
   // would write an orphan membership pointing at a gone folder. The check+write
